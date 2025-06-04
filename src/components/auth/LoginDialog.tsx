@@ -2,15 +2,15 @@
 "use client";
 
 import { useState } from 'react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider } from '@/lib/firebase'; // Import googleProvider
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from '@/hooks/use-toast';
-import { Loader2Icon } from 'lucide-react';
+import { Loader2Icon, ChromeIcon } from 'lucide-react'; // Added ChromeIcon for Google
 
 interface LoginDialogProps {
   open: boolean;
@@ -21,6 +21,7 @@ export function LoginDialog({ open }: LoginDialogProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleAuthAction = async (action: 'login' | 'signup') => {
@@ -40,6 +41,21 @@ export function LoginDialog({ open }: LoginDialogProps) {
       toast({ variant: "destructive", title: "Authentication Failed", description: err.message });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleSubmitting(true);
+    setError(null);
+    try {
+      await signInWithPopup(auth, googleProvider);
+      toast({ title: "Google Sign-In Successful", description: "Welcome to ResumeForge AI!" });
+      // Dialog will close automatically
+    } catch (err: any) {
+      setError(err.message);
+      toast({ variant: "destructive", title: "Google Sign-In Failed", description: err.message });
+    } finally {
+      setIsGoogleSubmitting(false);
     }
   };
 
@@ -68,7 +84,7 @@ export function LoginDialog({ open }: LoginDialogProps) {
                 <Input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
+              <Button type="submit" className="w-full" disabled={isSubmitting || isGoogleSubmitting}>
                 {isSubmitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
                 Login
               </Button>
@@ -85,13 +101,32 @@ export function LoginDialog({ open }: LoginDialogProps) {
                 <Input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
+              <Button type="submit" className="w-full" disabled={isSubmitting || isGoogleSubmitting}>
                 {isSubmitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
                 Sign Up
               </Button>
             </form>
           </TabsContent>
         </Tabs>
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">
+              Or continue with
+            </span>
+          </div>
+        </div>
+        <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isGoogleSubmitting || isSubmitting}>
+          {isGoogleSubmitting ? (
+            <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <ChromeIcon className="mr-2 h-4 w-4" /> 
+          )}
+          Google
+        </Button>
+        {error && !isSubmitting && !isGoogleSubmitting && <p className="text-sm text-destructive mt-2 text-center">{error}</p>}
       </DialogContent>
     </Dialog>
   );
