@@ -23,12 +23,14 @@ export function LoginDialog({ open }: LoginDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentAuthAction, setCurrentAuthAction] = useState<'login' | 'signup' | 'google' | null>(null);
 
-  const handleAuthAction = async (action: 'login' | 'signup') => {
+  const handleAuthAction = async (actionType: 'login' | 'signup') => {
+    setCurrentAuthAction(actionType);
     setIsSubmitting(true);
     setError(null);
     try {
-      if (action === 'login') {
+      if (actionType === 'login') {
         await signInWithEmailAndPassword(auth, email, password);
         toast({ title: "Login Successful", description: "Welcome back!" });
       } else {
@@ -37,7 +39,7 @@ export function LoginDialog({ open }: LoginDialogProps) {
       }
       // Dialog will close automatically due to auth state change in parent
     } catch (err: any) {
-      console.error("Auth Action Error:", err);
+      console.error(`${actionType} Error:`, err);
       const errorMessage = err.code ? `${err.code}: ${err.message}` : err.message;
       setError(errorMessage);
       toast({ variant: "destructive", title: "Authentication Failed", description: errorMessage });
@@ -47,17 +49,35 @@ export function LoginDialog({ open }: LoginDialogProps) {
   };
 
   const handleGoogleSignIn = async () => {
+    setCurrentAuthAction('google');
     setIsGoogleSubmitting(true);
     setError(null);
     try {
+      googleProvider.setCustomParameters({
+        prompt: 'select_account'
+      });
       await signInWithPopup(auth, googleProvider);
       toast({ title: "Google Sign-In Successful", description: "Welcome to ResumeForge AI!" });
       // Dialog will close automatically
     } catch (err: any) {
-      console.error("Google Sign-In Error:", err); // Log the full error object
-      const errorMessage = err.code ? `${err.code}: ${err.message}` : err.message;
+      console.error("Google Sign-In Error:", err); 
+      let errorMessage = err.message || "An unknown error occurred.";
+      let errorTitle = "Google Sign-In Failed";
+
+      if (err.code === 'auth/unauthorized-domain') {
+        errorMessage = "This domain is not authorized for Google Sign-In. Please double-check your Firebase project's Authentication settings under 'Authorized domains'. Ensure 'localhost' (and your deployed domain if applicable) is listed. Changes may take a few minutes to apply.";
+        errorTitle = "Unauthorized Domain";
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        errorMessage = "The sign-in popup was closed before authentication could complete. Please try again.";
+        errorTitle = "Sign-In Cancelled";
+      } else if (err.code === 'auth/cancelled-popup-request' || err.code === 'auth/popup-blocked') {
+        errorMessage = "The sign-in popup was cancelled or blocked by the browser. Please ensure popups are enabled for this site and try again.";
+        errorTitle = "Popup Issue";
+      } else if (err.code) {
+         errorMessage = `${err.code}: ${err.message}`;
+      }
       setError(errorMessage);
-      toast({ variant: "destructive", title: "Google Sign-In Failed", description: errorMessage });
+      toast({ variant: "destructive", title: errorTitle, description: errorMessage });
     } finally {
       setIsGoogleSubmitting(false);
     }
@@ -74,8 +94,8 @@ export function LoginDialog({ open }: LoginDialogProps) {
         </DialogHeader>
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Login</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            <TabsTrigger value="login" onClick={() => { setError(null); setCurrentAuthAction('login'); }}>Login</TabsTrigger>
+            <TabsTrigger value="signup" onClick={() => { setError(null); setCurrentAuthAction('signup'); }}>Sign Up</TabsTrigger>
           </TabsList>
           <TabsContent value="login">
             <form onSubmit={(e) => { e.preventDefault(); handleAuthAction('login'); }} className="space-y-4 py-4">
@@ -87,9 +107,9 @@ export function LoginDialog({ open }: LoginDialogProps) {
                 <Label htmlFor="login-password">Password</Label>
                 <Input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
-              {error && action !== 'google' && <p className="text-sm text-destructive">{error}</p>}
+              {error && currentAuthAction === 'login' && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={isSubmitting || isGoogleSubmitting}>
-                {isSubmitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+                {isSubmitting && currentAuthAction === 'login' && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
                 Login
               </Button>
             </form>
@@ -104,9 +124,9 @@ export function LoginDialog({ open }: LoginDialogProps) {
                 <Label htmlFor="signup-password">Password</Label>
                 <Input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
-              {error && action !== 'google' && <p className="text-sm text-destructive">{error}</p>}
+              {error && currentAuthAction === 'signup' && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={isSubmitting || isGoogleSubmitting}>
-                {isSubmitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+                {isSubmitting && currentAuthAction === 'signup' && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
                 Sign Up
               </Button>
             </form>
@@ -130,7 +150,7 @@ export function LoginDialog({ open }: LoginDialogProps) {
           )}
           Google
         </Button>
-        {error && <p className="text-sm text-destructive mt-2 text-center">{error}</p>}
+        {error && currentAuthAction === 'google' && <p className="text-sm text-destructive mt-2 text-center">{error}</p>}
       </DialogContent>
     </Dialog>
   );
