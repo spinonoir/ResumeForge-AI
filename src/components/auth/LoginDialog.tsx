@@ -52,6 +52,11 @@ export function LoginDialog({ open }: LoginDialogProps) {
     setCurrentAuthAction('google');
     setIsGoogleSubmitting(true);
     setError(null);
+
+    // Log current origin and configured authDomain for debugging
+    console.log('Attempting Google Sign-In from origin:', window.location.origin);
+    console.log('Firebase SDK configured authDomain:', auth.app.options.authDomain);
+
     try {
       googleProvider.setCustomParameters({
         prompt: 'select_account'
@@ -65,7 +70,7 @@ export function LoginDialog({ open }: LoginDialogProps) {
       let errorTitle = "Google Sign-In Failed";
 
       if (err.code === 'auth/unauthorized-domain') {
-        errorMessage = "This domain is not authorized for Google Sign-In. Please double-check your Firebase project's Authentication settings under 'Authorized domains'. Ensure 'localhost' (and your deployed domain if applicable) is listed. Changes may take a few minutes to apply.";
+        errorMessage = `This domain (${window.location.origin}) is not authorized for Google Sign-In with the configured authDomain (${auth.app.options.authDomain}). Please double-check your Firebase project's Authentication settings under 'Authorized domains'. Ensure '${window.location.origin}' (and/or 'localhost' if applicable) is listed. Changes may take a few minutes to apply. Firebase Error Code: ${err.code}`;
         errorTitle = "Unauthorized Domain";
       } else if (err.code === 'auth/popup-closed-by-user') {
         errorMessage = "The sign-in popup was closed before authentication could complete. Please try again.";
@@ -77,7 +82,7 @@ export function LoginDialog({ open }: LoginDialogProps) {
          errorMessage = `${err.code}: ${err.message}`;
       }
       setError(errorMessage);
-      toast({ variant: "destructive", title: errorTitle, description: errorMessage });
+      toast({ variant: "destructive", title: errorTitle, description: errorMessage, duration: 10000 });
     } finally {
       setIsGoogleSubmitting(false);
     }
