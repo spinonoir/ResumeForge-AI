@@ -37,8 +37,10 @@ export function LoginDialog({ open }: LoginDialogProps) {
       }
       // Dialog will close automatically due to auth state change in parent
     } catch (err: any) {
-      setError(err.message);
-      toast({ variant: "destructive", title: "Authentication Failed", description: err.message });
+      console.error("Auth Action Error:", err);
+      const errorMessage = err.code ? `${err.code}: ${err.message}` : err.message;
+      setError(errorMessage);
+      toast({ variant: "destructive", title: "Authentication Failed", description: errorMessage });
     } finally {
       setIsSubmitting(false);
     }
@@ -52,8 +54,10 @@ export function LoginDialog({ open }: LoginDialogProps) {
       toast({ title: "Google Sign-In Successful", description: "Welcome to ResumeForge AI!" });
       // Dialog will close automatically
     } catch (err: any) {
-      setError(err.message);
-      toast({ variant: "destructive", title: "Google Sign-In Failed", description: err.message });
+      console.error("Google Sign-In Error:", err); // Log the full error object
+      const errorMessage = err.code ? `${err.code}: ${err.message}` : err.message;
+      setError(errorMessage);
+      toast({ variant: "destructive", title: "Google Sign-In Failed", description: errorMessage });
     } finally {
       setIsGoogleSubmitting(false);
     }
@@ -83,7 +87,7 @@ export function LoginDialog({ open }: LoginDialogProps) {
                 <Label htmlFor="login-password">Password</Label>
                 <Input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && action !== 'google' && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={isSubmitting || isGoogleSubmitting}>
                 {isSubmitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
                 Login
@@ -100,7 +104,7 @@ export function LoginDialog({ open }: LoginDialogProps) {
                 <Label htmlFor="signup-password">Password</Label>
                 <Input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && action !== 'google' && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={isSubmitting || isGoogleSubmitting}>
                 {isSubmitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
                 Sign Up
@@ -122,11 +126,11 @@ export function LoginDialog({ open }: LoginDialogProps) {
           {isGoogleSubmitting ? (
             <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
           ) : (
-            <ChromeIcon className="mr-2 h-4 w-4" /> 
+            <ChromeIcon className="mr-2 h-4 w-4" />
           )}
           Google
         </Button>
-        {error && !isSubmitting && !isGoogleSubmitting && <p className="text-sm text-destructive mt-2 text-center">{error}</p>}
+        {error && <p className="text-sm text-destructive mt-2 text-center">{error}</p>}
       </DialogContent>
     </Dialog>
   );
