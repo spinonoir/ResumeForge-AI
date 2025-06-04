@@ -1,20 +1,43 @@
+
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileTabContent } from "@/components/tabs/ProfileTabContent";
 import { NewApplicationTabContent } from "@/components/tabs/NewApplicationTabContent";
 import { SavedApplicationsTabContent } from "@/components/tabs/SavedApplicationsTabContent";
-import { UserCircle2Icon, FilePlus2Icon, ArchiveIcon, BotIcon } from 'lucide-react';
+import { UserCircle2Icon, FilePlus2Icon, ArchiveIcon, BotIcon, LogOutIcon, Loader2Icon } from 'lucide-react';
+import { useAuth } from "@/contexts/AuthContext";
+import { LoginDialog } from "@/components/auth/LoginDialog";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
+  const { user, loading, logout } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <Loader2Icon className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginDialog open={true} />;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="p-4 sm:p-6 border-b sticky top-0 bg-background/80 backdrop-blur-md z-10">
-        <div className="container mx-auto flex items-center">
-          <BotIcon className="h-8 w-8 text-primary mr-3" />
-          <h1 className="text-2xl sm:text-3xl font-headline text-primary">
-            ResumeForge AI
-          </h1>
+        <div className="container mx-auto flex items-center justify-between">
+          <div className="flex items-center">
+            <BotIcon className="h-8 w-8 text-primary mr-3" />
+            <h1 className="text-2xl sm:text-3xl font-headline text-primary">
+              ResumeForge AI
+            </h1>
+          </div>
+          <Button variant="outline" size="sm" onClick={logout}>
+            <LogOutIcon className="mr-2 h-4 w-4" /> Logout
+          </Button>
         </div>
       </header>
       <main className="p-4 sm:p-6 container mx-auto">
