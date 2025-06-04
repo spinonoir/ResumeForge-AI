@@ -70,8 +70,11 @@ export function LoginDialog({ open }: LoginDialogProps) {
       let errorTitle = "Google Sign-In Failed";
 
       if (err.code === 'auth/unauthorized-domain') {
-        errorMessage = `This domain (${window.location.origin}) is not authorized for Google Sign-In with the configured authDomain (${auth.app.options.authDomain}). Please double-check your Firebase project's Authentication settings under 'Authorized domains'. Ensure '${window.location.origin}' (and/or 'localhost' if applicable) is listed. Changes may take a few minutes to apply. Firebase Error Code: ${err.code}`;
         errorTitle = "Unauthorized Domain";
+        errorMessage = `Your app's domain (${window.location.origin}) is not authorized for Google Sign-In. 
+        1. Open your browser's developer console (F12) to see the exact 'origin' and 'authDomain' logged.
+        2. In your Firebase project (resumeforge-ai-2quwm) > Authentication > Settings > Authorized domains, ensure the EXACT origin logged in the console (e.g., http://localhost:9002) is listed.
+        Changes may take a few minutes to apply. Firebase Error Code: ${err.code}`;
       } else if (err.code === 'auth/popup-closed-by-user') {
         errorMessage = "The sign-in popup was closed before authentication could complete. Please try again.";
         errorTitle = "Sign-In Cancelled";
@@ -81,8 +84,8 @@ export function LoginDialog({ open }: LoginDialogProps) {
       } else if (err.code) {
          errorMessage = `${err.code}: ${err.message}`;
       }
-      setError(errorMessage);
-      toast({ variant: "destructive", title: errorTitle, description: errorMessage, duration: 10000 });
+      setError(errorMessage); // This sets the error for display beneath the Google button
+      toast({ variant: "destructive", title: errorTitle, description: `Details: ${errorMessage.length > 150 ? errorMessage.substring(0,150) + '...' : errorMessage}. Check console for full error.`, duration: 10000 });
     } finally {
       setIsGoogleSubmitting(false);
     }
@@ -160,3 +163,4 @@ export function LoginDialog({ open }: LoginDialogProps) {
     </Dialog>
   );
 }
+
