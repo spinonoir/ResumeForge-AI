@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
-import { ArchiveIcon, EyeIcon, Trash2Icon, FileTextIcon, MailIcon, BarChart3Icon, CheckCircleIcon } from 'lucide-react';
+import { ArchiveIcon, EyeIcon, Trash2Icon, FileTextIcon, MailIcon, BarChart3Icon, CheckCircleIcon, ClipboardListIcon } from 'lucide-react';
 import { format } from 'date-fns';
 
 export function SavedApplicationsTabContent() {
@@ -24,7 +24,7 @@ export function SavedApplicationsTabContent() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">You haven't saved any applications yet. Create and save an application from the "New Application" tab.</p>
+          <p className="text-muted-foreground">You haven&apos;t saved any applications yet. Create and save an application from the &quot;New Application&quot; tab.</p>
         </CardContent>
       </Card>
     );

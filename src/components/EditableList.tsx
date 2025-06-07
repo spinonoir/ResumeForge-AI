@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { XIcon, Edit2Icon, PlusCircleIcon, CheckIcon, Trash2Icon } from 'lucide-react';
+import { Edit2Icon, PlusCircleIcon, CheckIcon, Trash2Icon } from 'lucide-react';
 
 interface Item {
   id: string;
-  [key: string]: any;
+  [key: string]: string | number | boolean | null;
 }
 
 interface FieldConfig {
@@ -27,7 +27,7 @@ interface EditableListProps<T extends Item> {
   onUpdateItem: (id: string, item: Partial<Omit<T, 'id'>>) => void;
   onRemoveItem: (id: string) => void;
   renderItem?: (item: T, onEdit: () => void, onRemove: () => void) => ReactNode;
-  itemToString: (item: T) => string; // For simple display if no custom renderItem
+  itemToString: (item: T) => string;
   icon?: ReactNode;
 }
 
@@ -47,7 +47,8 @@ export function EditableList<T extends Item>({
   const [currentItem, setCurrentItem] = useState<Partial<Omit<T, 'id'>>>({});
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setCurrentItem({ ...currentItem, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setCurrentItem(prev => ({ ...prev, [name]: value }));
   };
 
   const resetForm = () => {
@@ -60,14 +61,10 @@ export function EditableList<T extends Item>({
     if (editingId) {
       onUpdateItem(editingId, currentItem);
     } else {
-      // Ensure all required fields are present or provide defaults
       const newItemData = { ...currentItem } as Omit<T, 'id'>;
       fields.forEach(field => {
-        if (!(field.name in newItemData) && field.type === 'text') {
-          (newItemData as any)[field.name] = ''; 
-        }
-        if (!(field.name in newItemData) && field.type === 'textarea') {
-          (newItemData as any)[field.name] = '';
+        if (!(field.name in newItemData)) {
+          (newItemData as Record<string, string>)[field.name] = '';
         }
       });
       onAddItem(newItemData);
@@ -78,7 +75,7 @@ export function EditableList<T extends Item>({
   const handleEdit = (item: T) => {
     setEditingId(item.id);
     setCurrentItem(item);
-    setIsAdding(false); // Close add form if open
+    setIsAdding(false);
   };
 
   const renderFormFields = () => (
@@ -92,7 +89,7 @@ export function EditableList<T extends Item>({
             <Textarea
               id={field.name}
               name={field.name}
-              value={(currentItem as any)[field.name] || ''}
+              value={(currentItem as Record<string, string>)[field.name] || ''}
               onChange={handleInputChange}
               placeholder={field.placeholder || field.label}
               rows={3}
@@ -103,7 +100,7 @@ export function EditableList<T extends Item>({
               id={field.name}
               name={field.name}
               type="text"
-              value={(currentItem as any)[field.name] || ''}
+              value={(currentItem as Record<string, string>)[field.name] || ''}
               onChange={handleInputChange}
               placeholder={field.placeholder || field.label}
               className="w-full"
@@ -139,7 +136,7 @@ export function EditableList<T extends Item>({
         {(isAdding && !editingId) && renderFormFields()}
         
         {items.length === 0 && !isAdding && (
-          <p className="text-muted-foreground">No {title.toLowerCase()} added yet. Click the '+' button to add one.</p>
+          <p className="text-muted-foreground">No {title.toLowerCase()} added yet. Click the &apos;+&apos; button to add one.</p>
         )}
 
         <ul className="space-y-3">

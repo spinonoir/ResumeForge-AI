@@ -2,26 +2,25 @@
 
 import React, { useState } from 'react';
 import { useUserProfileStore } from '@/lib/store';
-import type { EmploymentEntry, SkillEntry, ProjectEntry } from '@/types';
+import type { EmploymentEntry, ProjectEntry } from '@/types';
 import { EditableList } from '@/components/EditableList';
 import { BackgroundBuilder } from '@/components/profile/BackgroundBuilder';
 import { BriefcaseIcon, LightbulbIcon, SparklesIcon, UserCircle2Icon } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 
 const employmentFields = [
-  { name: 'title', label: 'Job Title', type: 'text' as 'text', placeholder: 'e.g., Software Engineer' },
-  { name: 'company', label: 'Company', type: 'text' as 'text', placeholder: 'e.g., Tech Solutions Inc.' },
-  { name: 'dates', label: 'Dates', type: 'text' as 'text', placeholder: 'e.g., Jan 2020 - Present' },
-  { name: 'description', label: 'Description', type: 'textarea' as 'textarea', placeholder: 'Briefly describe your responsibilities and achievements.' },
+  { name: 'title', label: 'Job Title', type: 'text' as const, placeholder: 'e.g., Software Engineer' },
+  { name: 'company', label: 'Company', type: 'text' as const, placeholder: 'e.g., Tech Solutions Inc.' },
+  { name: 'dates', label: 'Dates', type: 'text' as const, placeholder: 'e.g., Jan 2020 - Present' },
+  { name: 'description', label: 'Description', type: 'textarea' as const, placeholder: 'Briefly describe your responsibilities and achievements.' },
 ];
 
 const projectFields = [
-  { name: 'name', label: 'Project Name', type: 'text' as 'text', placeholder: 'e.g., Personal Portfolio Website' },
-  { name: 'description', label: 'Description', type: 'textarea' as 'textarea', placeholder: 'Describe the project and your role.' },
-  { name: 'link', label: 'Link (Optional)', type: 'text' as 'text', placeholder: 'e.g., https://github.com/yourproject' },
+  { name: 'name', label: 'Project Name', type: 'text' as const, placeholder: 'e.g., Personal Portfolio Website' },
+  { name: 'description', label: 'Description', type: 'textarea' as const, placeholder: 'Describe the project and your role.' },
+  { name: 'link', label: 'Link (Optional)', type: 'text' as const, placeholder: 'e.g., https://github.com/yourproject' },
 ];
 
 export function ProfileTabContent() {
@@ -119,7 +118,7 @@ export function ProfileTabContent() {
             <Button onClick={handleAddSkill}>Add Skill</Button>
           </div>
           {skills.length === 0 ? (
-             <p className="text-muted-foreground">No skills added yet. Type a skill and click "Add Skill".</p>
+             <p className="text-muted-foreground">No skills added yet. Type a skill and click &quot;Add Skill&quot;.</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {skills.map(skill => (

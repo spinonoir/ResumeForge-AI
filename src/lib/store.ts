@@ -1,4 +1,3 @@
-
 "use client";
 
 import { create } from 'zustand';
@@ -225,7 +224,7 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
 // Dev data population is now handled within loadUserProfile if no user data exists for a dev environment.
 // Consider removing explicit dev data population once Firebase is primary data source.
 if (process.env.NODE_ENV === 'development') {
-  const { userId, loadUserProfile } = useUserProfileStore.getState();
+  const { userId } = useUserProfileStore.getState();
   if (!userId) { // Only if no user is logged in yet (during initial dev setup)
     // loadUserProfile will handle dev data if profile doesn't exist.
     // This is a bit indirect, might be better to have a specific dev data seeding function if needed.
