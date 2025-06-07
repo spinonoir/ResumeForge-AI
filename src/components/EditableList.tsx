@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, type ReactNode } from 'react';
+import React, { useState, type ReactNode, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +20,10 @@ interface FieldConfig {
   placeholder?: string;
 }
 
+export interface EditableListRef<T extends Item> {
+  initiateAddItem: (initialData?: Partial<Omit<T, 'id'>>) => void;
+}
+
 interface EditableListProps<T extends Item> {
   title: string;
   items: T[];
@@ -27,21 +32,26 @@ interface EditableListProps<T extends Item> {
   onUpdateItem: (id: string, item: Partial<Omit<T, 'id'>>) => void;
   onRemoveItem: (id: string) => void;
   renderItem?: (item: T, onEdit: () => void, onRemove: () => void) => ReactNode;
-  itemToString: (item: T) => string; // For simple display if no custom renderItem
+  itemToString: (item: T) => string; 
   icon?: ReactNode;
+  customAddButton?: ReactNode; // To allow replacing the plus icon button
 }
 
-export function EditableList<T extends Item>({
-  title,
-  items,
-  fields,
-  onAddItem,
-  onUpdateItem,
-  onRemoveItem,
-  renderItem,
-  itemToString,
-  icon
-}: EditableListProps<T>) {
+const EditableListInner = <T extends Item>(
+  {
+    title,
+    items,
+    fields,
+    onAddItem,
+    onUpdateItem,
+    onRemoveItem,
+    renderItem,
+    itemToString,
+    icon,
+    customAddButton,
+  }: EditableListProps<T>,
+  ref: React.ForwardedRef<EditableListRef<T>>
+) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentItem, setCurrentItem] = useState<Partial<Omit<T, 'id'>>>({});
@@ -57,17 +67,23 @@ export function EditableList<T extends Item>({
   };
 
   const handleSave = () => {
+    if (Object.keys(currentItem).length === 0 && fields.some(f => !(f.name in currentItem))) {
+      // If currentItem is empty and some fields are not in it, don't save.
+      // This prevents saving an empty item if the form was just opened.
+      // Or, provide a more specific check based on your needs.
+      // For now, let's assume at least one field should have some value or specific check.
+      // This behavior might need refinement based on exact requirements for "empty" items.
+      resetForm();
+      return;
+    }
+
     if (editingId) {
       onUpdateItem(editingId, currentItem);
     } else {
-      // Ensure all required fields are present or provide defaults
       const newItemData = { ...currentItem } as Omit<T, 'id'>;
       fields.forEach(field => {
-        if (!(field.name in newItemData) && field.type === 'text') {
-          (newItemData as any)[field.name] = ''; 
-        }
-        if (!(field.name in newItemData) && field.type === 'textarea') {
-          (newItemData as any)[field.name] = '';
+        if (!(field.name in newItemData)) {
+          (newItemData as any)[field.name] = field.type === 'textarea' ? '' : ''; 
         }
       });
       onAddItem(newItemData);
@@ -78,8 +94,18 @@ export function EditableList<T extends Item>({
   const handleEdit = (item: T) => {
     setEditingId(item.id);
     setCurrentItem(item);
-    setIsAdding(false); // Close add form if open
+    setIsAdding(false); 
   };
+
+  const handleInitiateAddItem = (initialData?: Partial<Omit<T, 'id'>>) => {
+    setIsAdding(true);
+    setEditingId(null);
+    setCurrentItem(initialData || {});
+  };
+
+  useImperativeHandle(ref, () => ({
+    initiateAddItem: handleInitiateAddItem
+  }));
 
   const renderFormFields = () => (
     <div className="space-y-4 mb-4 p-4 border rounded-lg bg-card">
@@ -124,22 +150,26 @@ export function EditableList<T extends Item>({
         <CardTitle className="flex items-center text-xl font-headline">
           {icon && <span className="mr-2">{icon}</span>}
           {title}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="ml-auto"
-            onClick={() => { setIsAdding(true); setEditingId(null); setCurrentItem({}); }}
-            aria-label={`Add new ${title.slice(0, -1).toLowerCase()}`}
-          >
-            <PlusCircleIcon className="h-5 w-5 text-primary" />
-          </Button>
+          {customAddButton ? (
+            <div className="ml-auto">{customAddButton}</div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="ml-auto"
+              onClick={() => handleInitiateAddItem()}
+              aria-label={`Add new ${title.slice(0, -1).toLowerCase()}`}
+            >
+              <PlusCircleIcon className="h-5 w-5 text-primary" />
+            </Button>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {(isAdding && !editingId) && renderFormFields()}
         
         {items.length === 0 && !isAdding && (
-          <p className="text-muted-foreground">No {title.toLowerCase()} added yet. Click the '+' button to add one.</p>
+          <p className="text-muted-foreground">No {title.toLowerCase()} added yet. Click the '+' button or use AI to add one.</p>
         )}
 
         <ul className="space-y-3">
@@ -169,3 +199,4 @@ export function EditableList<T extends Item>({
     </Card>
   );
 }
+export const EditableList = React.forwardRef(EditableListInner);

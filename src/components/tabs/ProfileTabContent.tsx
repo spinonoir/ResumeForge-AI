@@ -1,15 +1,20 @@
+
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useUserProfileStore } from '@/lib/store';
 import type { EmploymentEntry, SkillEntry, ProjectEntry } from '@/types';
-import { EditableList } from '@/components/EditableList';
+import { EditableList, type EditableListRef } from '@/components/EditableList';
 import { BackgroundBuilder } from '@/components/profile/BackgroundBuilder';
-import { BriefcaseIcon, LightbulbIcon, SparklesIcon, UserCircle2Icon } from 'lucide-react';
+import { BriefcaseIcon, LightbulbIcon, SparklesIcon, UserCircle2Icon, PlusCircleIcon, Loader2Icon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { useMutation } from '@tanstack/react-query';
+import { parseEmploymentText, type ParseEmploymentTextInput, type ParseEmploymentTextOutput } from '@/ai/flows/employment-text-parser-flow';
+import { toast } from '@/hooks/use-toast';
 
 const employmentFields = [
   { name: 'title', label: 'Job Title', type: 'text' as 'text', placeholder: 'e.g., Software Engineer' },
@@ -32,6 +37,35 @@ export function ProfileTabContent() {
   } = useUserProfileStore();
 
   const [newSkill, setNewSkill] = useState('');
+  const employmentListRef = useRef<EditableListRef<EmploymentEntry>>(null);
+  const [isAIParsingDialogOpen, setIsAIParsingDialogOpen] = useState(false);
+  const [textToParse, setTextToParse] = useState('');
+
+  const parseMutation = useMutation<ParseEmploymentTextOutput, Error, ParseEmploymentTextInput>({
+    mutationFn: parseEmploymentText,
+    onSuccess: (data) => {
+      employmentListRef.current?.initiateAddItem({
+        title: data.jobTitle,
+        company: data.company,
+        dates: data.employmentDates,
+        description: data.jobDescription,
+      });
+      toast({ title: "Parsing Successful", description: "Employment form pre-filled. Please review and save." });
+      setIsAIParsingDialogOpen(false);
+      setTextToParse('');
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: "Parsing Failed", description: error.message });
+    }
+  });
+
+  const handleParseAndPrefill = () => {
+    if (!textToParse.trim()) {
+      toast({ variant: "destructive", title: "No Text Provided", description: "Please paste text to parse." });
+      return;
+    }
+    parseMutation.mutate({ textBlock: textToParse });
+  };
 
   const handleAddSkill = () => {
     if (newSkill.trim()) {
@@ -48,12 +82,7 @@ export function ProfileTabContent() {
           <p className="text-sm text-muted-foreground">{item.company} | {item.dates}</p>
         </div>
         <div className="space-x-1 flex-shrink-0">
-          <Button variant="ghost" size="icon" onClick={onEdit} aria-label="Edit employment">
-            <UserCircle2Icon className="h-4 w-4" /> {/* Placeholder, using Edit2Icon in EditableList */}
-          </Button>
-          <Button variant="ghost" size="icon" onClick={onRemove} aria-label="Remove employment">
-            <BriefcaseIcon className="h-4 w-4" /> {/* Placeholder, using Trash2Icon in EditableList */}
-          </Button>
+          {/* Icons are handled by EditableList's default renderItem or its internal buttons */}
         </div>
       </div>
       <p className="text-sm mt-1 whitespace-pre-wrap">{item.description}</p>
@@ -68,15 +97,33 @@ export function ProfileTabContent() {
           {item.link && <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">{item.link}</a>}
         </div>
         <div className="space-x-1 flex-shrink-0">
-           <Button variant="ghost" size="icon" onClick={onEdit} aria-label="Edit project">
-            <UserCircle2Icon className="h-4 w-4" /> {/* Placeholder */}
-          </Button>
-          <Button variant="ghost" size="icon" onClick={onRemove} aria-label="Remove project">
-            <BriefcaseIcon className="h-4 w-4" /> {/* Placeholder */}
-          </Button>
+           {/* Icons are handled by EditableList's default renderItem or its internal buttons */}
         </div>
       </div>
       <p className="text-sm mt-1 whitespace-pre-wrap">{item.description}</p>
+    </div>
+  );
+
+  const employmentCustomAddButton = (
+    <div className="flex items-center gap-1">
+        <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsAIParsingDialogOpen(true)}
+            aria-label="Add new employment with AI"
+            title="Add with AI"
+        >
+            <SparklesIcon className="h-5 w-5 text-primary" />
+        </Button>
+        <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => employmentListRef.current?.initiateAddItem()}
+            aria-label="Add new employment manually"
+            title="Add manually"
+        >
+            <PlusCircleIcon className="h-5 w-5 text-primary" />
+        </Button>
     </div>
   );
 
@@ -88,6 +135,7 @@ export function ProfileTabContent() {
       </p>
       
       <EditableList<EmploymentEntry>
+        ref={employmentListRef}
         title="Employment History"
         items={employmentHistory}
         fields={employmentFields}
@@ -97,6 +145,7 @@ export function ProfileTabContent() {
         renderItem={renderEmploymentItem}
         itemToString={(item) => `${item.title} at ${item.company}`}
         icon={<BriefcaseIcon className="h-6 w-6 text-primary" />}
+        customAddButton={employmentCustomAddButton}
       />
 
       <Card className="shadow-lg">
@@ -126,7 +175,7 @@ export function ProfileTabContent() {
                 <span key={skill.id} className="flex items-center bg-accent text-accent-foreground px-3 py-1 rounded-full text-sm">
                   {skill.name}
                   <Button variant="ghost" size="icon" className="ml-1 h-5 w-5 hover:bg-accent/80" onClick={() => removeSkill(skill.id)}>
-                    <UserCircle2Icon className="h-3 w-3" /> {/* Placeholder, should be XIcon */}
+                    <UserCircle2Icon className="h-3 w-3" /> {/* Placeholder, should be XIcon - will be fixed by EditableList logic if skill becomes editable list */}
                   </Button>
                 </span>
               ))}
@@ -148,6 +197,35 @@ export function ProfileTabContent() {
       />
       
       <BackgroundBuilder />
+
+      <Dialog open={isAIParsingDialogOpen} onOpenChange={setIsAIParsingDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-xl">Parse Employment Details from Text</DialogTitle>
+            <CardDescription>Paste a block of text from your resume or job history, and we'll try to fill in the fields for you.</CardDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <Textarea
+              placeholder="Paste employment text here..."
+              value={textToParse}
+              onChange={(e) => setTextToParse(e.target.value)}
+              rows={10}
+              className="w-full"
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button onClick={handleParseAndPrefill} disabled={parseMutation.isPending}>
+              {parseMutation.isPending && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+              Parse and Pre-fill Form
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
