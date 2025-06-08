@@ -79,6 +79,7 @@ export type GenerateResumeInput = z.infer<typeof GenerateResumeInputSchema>;
 
 const GenerateResumeOutputSchema = z.object({
   resume: z.string().describe('The generated resume in LaTeX format.'),
+  resumeMarkdown: z.string().describe('The generated resume in Markdown format.'),
   summary: z.string().describe('A summary blurb for the resume.'),
   coverLetter: z.string().describe('A cover letter tailored to the job description.'),
   matchAnalysis: z.string().describe('Analysis of how well the user matches the job description.'),
@@ -99,7 +100,12 @@ const resumePrompt = ai.definePrompt({
   output: {
     schema: GenerateResumeOutputSchema,
   },
-  prompt: `You are a resume expert. Create a tailored resume, summary blurb, cover letter and match analysis based on the following job description and user information. The resume should be in LaTeX format.
+  prompt: `You are a resume expert. Create the following outputs based on the provided job description and user information:
+1. A resume in LaTeX format.
+2. A resume in Markdown format.
+3. A summary blurb.
+4. A cover letter.
+5. An analysis of how well the user matches the job description.
 
 Job Description: {{{jobDescription}}}
 
@@ -158,7 +164,11 @@ Projects:
   {{#if link}}Link: {{{link}}}{{/if}}
 {{/each}}
 
-Consider all of this information and generate a resume in LaTeX format, a summary blurb, a cover letter, and an analysis of how well the user matches the job description. Focus on the aspects of the user's history, skills, and projects which are most relevant to the job description. The resume should be concise and well-formatted. The cover letter should be professional and engaging. The match analysis should be thorough and insightful. The summary blurb should be short and attention grabbing.
+Consider all of this information. Focus on the aspects of the user's history, skills, and projects which are most relevant to the job description.
+Both resume formats (LaTeX and Markdown) should be concise and well-formatted.
+The cover letter should be professional and engaging.
+The match analysis should be thorough and insightful.
+The summary blurb should be short and attention-grabbing.
 
 Ensure the output is well-structured and easy to read.
 `,
@@ -175,3 +185,4 @@ const generateResumeFlow = ai.defineFlow(
     return output!;
   }
 );
+

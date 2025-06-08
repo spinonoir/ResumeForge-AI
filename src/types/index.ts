@@ -38,6 +38,7 @@ export interface SavedApplication {
   companyName: string;
   jobDescription: string;
   generatedResumeLatex: string;
+  generatedResumeMarkdown: string;
   generatedCoverLetter: string;
   generatedSummary: string;
   matchAnalysis: string;
@@ -66,7 +67,7 @@ export interface EducationEntry {
   degree: string;
   fieldOfStudy?: string;
   dates: string; 
-  gpa?: string; // Added GPA
-  accomplishments?: string; // Replaced description with accomplishments
+  gpa?: string;
+  accomplishments?: string;
 }
 

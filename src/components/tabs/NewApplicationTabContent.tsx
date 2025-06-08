@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -10,16 +11,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2Icon, FileTextIcon, MailIcon, BarChart3Icon, CheckCircleIcon, SaveIcon, Wand2Icon, ClipboardListIcon } from 'lucide-react';
+import { Loader2Icon, FileTextIcon, MailIcon, BarChart3Icon, CheckCircleIcon, SaveIcon, Wand2Icon, ClipboardListIcon, CodeIcon } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 
 interface GeneratedData extends GenerateResumeOutput {
   jobDescriptionUsed: string;
+  // resumeMarkdown is already part of GenerateResumeOutput
 }
 
 export function NewApplicationTabContent() {
-  const { getAIEmploymentHistory, getAISkills, getAIProjects, backgroundInformation } = useUserProfileStore();
+  const { getAIEmploymentHistory, getAISkills, getAIProjects, backgroundInformation, getAIPersonalDetails, getAIEducationHistory } = useUserProfileStore();
   const { addSavedApplication } = useApplicationsStore();
 
   const [jobDescription, setJobDescription] = useState('');
@@ -58,14 +60,16 @@ export function NewApplicationTabContent() {
       toast({ variant: "destructive", title: "Job Description Missing", description: "Please provide a job description." });
       return;
     }
-    const profileDataCheck = getAIEmploymentHistory().length > 0 || getAISkills().length > 0 || getAIProjects().length > 0 || backgroundInformation.trim() !== '';
+    const profileDataCheck = getAIEmploymentHistory().length > 0 || getAISkills().length > 0 || getAIProjects().length > 0 || backgroundInformation.trim() !== '' || getAIPersonalDetails().name || getAIEducationHistory().length > 0;
     if (!profileDataCheck) {
-        toast({ variant: "destructive", title: "Profile Incomplete", description: "Please fill out your profile (employment, skills, projects, or background info)." });
+        toast({ variant: "destructive", title: "Profile Incomplete", description: "Please fill out your profile (personal details, education, employment, skills, projects, or background info)." });
         return;
     }
 
     resumeMutation.mutate({
       jobDescription,
+      personalDetails: getAIPersonalDetails(),
+      educationHistory: getAIEducationHistory(),
       employmentHistory: getAIEmploymentHistory(),
       skills: getAISkills(),
       projects: getAIProjects(),
@@ -80,7 +84,7 @@ export function NewApplicationTabContent() {
     }
     coverLetterRefineMutation.mutate({
       jobDescription: generatedData.jobDescriptionUsed,
-      userBackground: backgroundInformation, // Or a more comprehensive background string
+      userBackground: backgroundInformation, 
       companyInformation: companyInfo,
     });
   };
@@ -99,6 +103,7 @@ export function NewApplicationTabContent() {
       companyName: companyNameForSaving,
       jobDescription: generatedData.jobDescriptionUsed,
       generatedResumeLatex: generatedData.resume,
+      generatedResumeMarkdown: generatedData.resumeMarkdown,
       generatedCoverLetter: generatedData.coverLetter,
       generatedSummary: generatedData.summary,
       matchAnalysis: generatedData.matchAnalysis,
@@ -166,6 +171,7 @@ export function NewApplicationTabContent() {
           {renderOutputSection("Generated Summary", generatedData.summary, <CheckCircleIcon className="mr-2 h-5 w-5 text-green-500" />)}
           {renderOutputSection("Match Analysis", generatedData.matchAnalysis, <BarChart3Icon className="mr-2 h-5 w-5 text-blue-500" />)}
           {renderOutputSection("LaTeX Resume", generatedData.resume, <FileTextIcon className="mr-2 h-5 w-5 text-purple-500" />)}
+          {renderOutputSection("Markdown Resume", generatedData.resumeMarkdown, <CodeIcon className="mr-2 h-5 w-5 text-teal-500" />)}
           
           <Card className="shadow-md">
             <CardHeader>
@@ -229,3 +235,4 @@ export function NewApplicationTabContent() {
     </div>
   );
 }
+

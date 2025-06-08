@@ -78,7 +78,7 @@ const saveProfileToFirestore = async (userId: string, profileData: Partial<Pick<
       ...eh,
       skillsDemonstrated: eh.skillsDemonstrated || [],
       jobSummary: eh.jobSummary || '',
-      description: eh.description || '', // Ensure description is always present, even if empty, matching type
+      description: eh.description || '', 
     }));
   }
   if (profileData.skills !== undefined) {
@@ -156,7 +156,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
             id: edu.id || Date.now().toString() + Math.random(),
             fieldOfStudy: edu.fieldOfStudy || '',
             gpa: edu.gpa || '',
-            accomplishments: edu.accomplishments || (edu.description || ''), // Map old description to accomplishments
+            accomplishments: edu.accomplishments || '',
         })),
         backgroundInformation: data.backgroundInformation || '',
         isLoadingProfile: false,
@@ -329,7 +329,19 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
     const querySnapshot = await getDocs(appsCollectionRef);
     const apps: SavedApplication[] = [];
     querySnapshot.forEach((docSnap) => { 
-      apps.push({ id: docSnap.id, ...docSnap.data() } as SavedApplication);
+      const data = docSnap.data();
+      apps.push({ 
+        id: docSnap.id, 
+        jobTitle: data.jobTitle,
+        companyName: data.companyName,
+        jobDescription: data.jobDescription,
+        generatedResumeLatex: data.generatedResumeLatex,
+        generatedResumeMarkdown: data.generatedResumeMarkdown || '', // Ensure markdown exists
+        generatedCoverLetter: data.generatedCoverLetter,
+        generatedSummary: data.generatedSummary,
+        matchAnalysis: data.matchAnalysis,
+        createdAt: data.createdAt,
+       } as SavedApplication);
     });
     set({ savedApplications: apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), isLoadingApplications: false });
   },
@@ -390,3 +402,4 @@ if (process.env.NODE_ENV === 'development') {
     loadUserProfile("dummy_dev_user_id_for_initial_load_if_needed");
   }
 }
+
