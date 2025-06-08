@@ -38,7 +38,7 @@ const ProjectsSchema = z.array(z.object({
 export type Projects = z.infer<typeof ProjectsSchema>;
 
 const SocialMediaLinkSchema = z.object({
-  id: z.string().optional(), 
+  id: z.string().optional(),
   platform: z.string().describe('Social media platform name (e.g., Twitter, GitHub, Portfolio)'),
   url: z.string().url().describe('URL to the social media profile or site'),
 });
@@ -55,7 +55,7 @@ const PersonalDetailsSchema = z.object({
 export type PersonalDetails = z.infer<typeof PersonalDetailsSchema>;
 
 const EducationEntrySchema = z.object({
-  id: z.string().optional(), 
+  id: z.string().optional(),
   institution: z.string().describe('Name of the educational institution.'),
   degree: z.string().describe('Degree obtained (e.g., Bachelor of Science).'),
   fieldOfStudy: z.string().optional().describe('Field of study (e.g., Computer Science).'),
@@ -275,7 +275,7 @@ const generateResumeFlow = ai.defineFlow(
     if (processedAccentColor && processedAccentColor.startsWith('#')) {
       processedAccentColor = processedAccentColor.substring(1);
     }
-   
+
     const flowInput = {
       ...input,
       accentColor: processedAccentColor,
@@ -291,3 +291,4 @@ const generateResumeFlow = ai.defineFlow(
 // Removed the ai.registry.test.addHandlebarsHelper call as it was causing errors
 // and the AI is expected to interpret the logic from the prompt context.
 // The containsChars logic is illustrative for the AI within the prompt.
+
