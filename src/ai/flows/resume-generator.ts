@@ -249,7 +249,7 @@ Template-Specific Guidelines:
       {{#if gpa}}GPA: {{{gpa}}} {{/if}}{{#if accomplishments}}Accomplishments: {{{accomplishments}}} {{/if}}{{#if jobSummary}}Summary: {{{jobSummary}}}{{/if}}
       Descriptions should be extremely brief bullet points or even a run-in paragraph. Use \\begin{itemize}[label=\\textbullet, leftmargin=*, noitemsep, topsep=0pt, partopsep=0pt, parsep=0pt]
   - Skills Section: Comma-separated list or very tight columns.
-  - General: Aggressively remove whitespace. Consider using \`\\\`\\\\linespread{0.9}\\\`\` if absolutely necessary.
+  - General: Aggressively remove whitespace. Consider using \\\`\\\\linespread{0.9}\\\`\` if absolutely necessary.
 {{/eq}}
 
 Make sure the generated LaTeX is a single, complete, and compilable document.
@@ -275,39 +275,19 @@ const generateResumeFlow = ai.defineFlow(
     if (processedAccentColor && processedAccentColor.startsWith('#')) {
       processedAccentColor = processedAccentColor.substring(1);
     }
-
-    // Helper for prompt, not a real Handlebars helper, but used in prompt logic
-    const containsChars = (str: string, chars: string, expectedLength: number) => {
-        if (!str || str.length !== expectedLength) return false;
-        for (let i = 0; i < str.length; i++) {
-            if (chars.indexOf(str[i]) === -1) return false;
-        }
-        return true;
-    };
-
-
+   
     const flowInput = {
       ...input,
       accentColor: processedAccentColor,
       // This is a trick to make the 'containsChars' logic available in the prompt context
       // The actual check will be done in the prompt like {{#if (containsChars accentColor "0123456789ABCDEFabcdef" 6)}}
       // The AI should interpret this based on the example.
-      // This is illustrative; the AI is expected to handle the hex check based on description.
-      // For a true Handlebars helper, it would need to be registered with Handlebars.
     };
 
     const {output} = await resumePrompt(flowInput);
     return output!;
   }
 );
-
-// The following was removed as it was causing a runtime error and the AI
-// is expected to interpret the logic from the prompt context.
-// ai.registry.test.addHandlebarsHelper('containsChars', (str: string, chars: string, expectedLength: number) => {
-//     if (!str || str.length !== expectedLength) return false;
-//     for (let i = 0; i < str.length; i++) {
-//         if (chars.indexOf(str[i]) === -1) return false;
-//     }
-//     return true;
-// });
-
+// Removed the ai.registry.test.addHandlebarsHelper call as it was causing errors
+// and the AI is expected to interpret the logic from the prompt context.
+// The containsChars logic is illustrative for the AI within the prompt.
