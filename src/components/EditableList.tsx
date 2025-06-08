@@ -31,10 +31,10 @@ interface EditableListProps<T extends Item> {
   onAddItem: (item: Omit<T, 'id'>) => void;
   onUpdateItem: (id: string, item: Partial<Omit<T, 'id'>>) => void;
   onRemoveItem: (id: string) => void;
-  renderItem?: (item: T, onEdit: () => void, onRemove: () => void) => ReactNode;
+  renderItem?: (item: T) => ReactNode; // onEdit and onRemove are no longer passed
   itemToString: (item: T) => string; 
   icon?: ReactNode;
-  customAddButton?: ReactNode; // To allow replacing the plus icon button
+  customAddButton?: ReactNode;
 }
 
 const EditableListInner = <T extends Item>(
@@ -68,11 +68,6 @@ const EditableListInner = <T extends Item>(
 
   const handleSave = () => {
     if (Object.keys(currentItem).length === 0 && fields.some(f => !(f.name in currentItem))) {
-      // If currentItem is empty and some fields are not in it, don't save.
-      // This prevents saving an empty item if the form was just opened.
-      // Or, provide a more specific check based on your needs.
-      // For now, let's assume at least one field should have some value or specific check.
-      // This behavior might need refinement based on exact requirements for "empty" items.
       resetForm();
       return;
     }
@@ -178,19 +173,19 @@ const EditableListInner = <T extends Item>(
               {editingId === item.id ? (
                 renderFormFields()
               ) : (
-                renderItem ? renderItem(item, () => handleEdit(item), () => onRemoveItem(item.id)) : (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-foreground flex-grow">{itemToString(item)}</span>
-                    <div className="space-x-1 flex-shrink-0">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(item)} aria-label="Edit item">
-                        <Edit2Icon className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => onRemoveItem(item.id)} aria-label="Remove item">
-                        <Trash2Icon className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                      </Button>
-                    </div>
+                <div className="flex items-start justify-between">
+                  <div className="flex-grow pr-2">
+                    {renderItem ? renderItem(item) : <span className="text-sm text-foreground">{itemToString(item)}</span>}
                   </div>
-                )
+                  <div className="space-x-1 flex-shrink-0">
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(item)} aria-label="Edit item">
+                      <Edit2Icon className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => onRemoveItem(item.id)} aria-label="Remove item">
+                      <Trash2Icon className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                    </Button>
+                  </div>
+                </div>
               )}
             </li>
           ))}

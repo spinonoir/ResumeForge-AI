@@ -100,7 +100,7 @@ export function ProfileTabContent() {
       toast({ variant: "destructive", title: "No Text Provided", description: "Please paste skills text to parse." });
       return;
     }
-    setSuggestedSkills([]); // Clear previous suggestions
+    setSuggestedSkills([]); 
     skillsParseMutation.mutate({ textBlock: skillsTextToParse });
   };
 
@@ -111,9 +111,8 @@ export function ProfileTabContent() {
     }
     let skillsAddedCount = 0;
     for (const skill of suggestedSkills) {
-      // addSkill in store now handles duplicate checks
       await addSkill({ name: skill.name, category: skill.category });
-      skillsAddedCount++; // Assuming addSkill is successful or handles its own errors/duplicates
+      skillsAddedCount++; 
     }
     if (skillsAddedCount > 0) {
         toast({ title: "Skills Added", description: `${skillsAddedCount} skills/categories added to your profile.` });
@@ -123,14 +122,10 @@ export function ProfileTabContent() {
     setIsAISkillsDialogOpen(false);
   };
   
-  const renderEmploymentItem = (item: EmploymentEntry, onEdit: () => void, onRemove: () => void) => (
+  const renderEmploymentItem = (item: EmploymentEntry) => (
     <div>
-      <div className="flex justify-between items-start">
-        <div>
-          <h4 className="font-semibold text-md">{item.title}</h4>
-          <p className="text-sm text-muted-foreground">{item.company} | {item.dates}</p>
-        </div>
-      </div>
+      <h4 className="font-semibold text-md">{item.title}</h4>
+      <p className="text-sm text-muted-foreground">{item.company} | {item.dates}</p>
       {item.jobSummary && (
         <div className="mt-1">
           <p className="text-xs font-medium text-muted-foreground">Summary:</p>
@@ -144,14 +139,10 @@ export function ProfileTabContent() {
     </div>
   );
 
-  const renderProjectItem = (item: ProjectEntry, onEdit: () => void, onRemove: () => void) => (
+  const renderProjectItem = (item: ProjectEntry) => (
      <div>
-      <div className="flex justify-between items-start">
-        <div>
-          <h4 className="font-semibold text-md">{item.name}</h4>
-          {item.link && <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">{item.link}</a>}
-        </div>
-      </div>
+      <h4 className="font-semibold text-md">{item.name}</h4>
+      {item.link && <a href={item.link.startsWith('http') ? item.link : `https://${item.link}`} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline break-all">{item.link}</a>}
       <p className="text-sm mt-1 whitespace-pre-wrap">{item.description}</p>
     </div>
   );
@@ -275,7 +266,7 @@ export function ProfileTabContent() {
       <Dialog open={isAISkillsDialogOpen} onOpenChange={(isOpen) => {
           setIsAISkillsDialogOpen(isOpen);
           if (!isOpen) {
-            setSuggestedSkills([]); // Clear suggestions when dialog closes
+            setSuggestedSkills([]); 
             setSkillsTextToParse('');
           }
       }}>
