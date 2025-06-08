@@ -45,7 +45,8 @@ const educationFields = [
   { name: 'degree', label: 'Degree', type: 'text' as 'text', placeholder: 'e.g., Bachelor of Science' },
   { name: 'fieldOfStudy', label: 'Field of Study (Optional)', type: 'text' as 'text', placeholder: 'e.g., Computer Science' },
   { name: 'dates', label: 'Dates', type: 'text' as 'text', placeholder: 'e.g., Aug 2018 - May 2022' },
-  { name: 'description', label: 'Description/Achievements (Optional)', type: 'textarea' as 'textarea', placeholder: 'e.g., GPA, honors, relevant coursework' },
+  { name: 'gpa', label: 'GPA (Optional)', type: 'text' as 'text', placeholder: 'e.g., 3.8/4.0' },
+  { name: 'accomplishments', label: 'Accomplishments / Key Details (Optional)', type: 'textarea' as 'textarea', placeholder: 'e.g., Dean\'s List, relevant coursework, thesis title' },
 ];
 
 const socialMediaFields = [
@@ -89,7 +90,6 @@ export function ProfileTabContent() {
     const newLink = { ...item, id: Date.now().toString() };
     const updatedSocialMedia = [...(localPersonalDetails.socialMediaLinks || []), newLink];
     setLocalPersonalDetails(prev => ({...prev, socialMediaLinks: updatedSocialMedia }));
-    // Note: We'll save all personal details together with the main button
   };
 
   const handleUpdateSocialMediaLink = (id: string, item: Partial<Omit<SocialMediaLink, 'id'>>) => {
@@ -459,10 +459,20 @@ export function ProfileTabContent() {
             {isExpanded ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
           </Button>
         </div>
-        {isExpanded && item.description && (
-          <div className="pl-2 pt-2 border-l-2 border-muted ml-1 pb-2">
-            <p className="text-sm font-medium text-muted-foreground mb-0.5">Details:</p>
-            <p className="text-sm whitespace-pre-wrap">{item.description}</p>
+        {isExpanded && (
+          <div className="pl-2 pt-2 space-y-3 border-l-2 border-muted ml-1 pb-2">
+            {item.gpa && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-0.5">GPA:</p>
+                <p className="text-sm">{item.gpa}</p>
+              </div>
+            )}
+            {item.accomplishments && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-0.5">Accomplishments / Key Details:</p>
+                <p className="text-sm whitespace-pre-wrap">{item.accomplishments}</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -985,4 +995,3 @@ export function ProfileTabContent() {
     </div>
   );
 }
-

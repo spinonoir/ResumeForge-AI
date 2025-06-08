@@ -68,7 +68,7 @@ const saveProfileToFirestore = async (userId: string, profileData: Partial<Pick<
 
   if (profileData.personalDetails !== undefined) {
     dataToSave.personalDetails = {
-      ...defaultPersonalDetails, // ensure all keys exist even if empty
+      ...defaultPersonalDetails, 
       ...profileData.personalDetails,
       socialMediaLinks: (profileData.personalDetails.socialMediaLinks || []).map(sm => ({ platform: sm.platform, url: sm.url, id: sm.id || Date.now().toString()})),
     };
@@ -78,7 +78,7 @@ const saveProfileToFirestore = async (userId: string, profileData: Partial<Pick<
       ...eh,
       skillsDemonstrated: eh.skillsDemonstrated || [],
       jobSummary: eh.jobSummary || '',
-      description: eh.description || '',
+      description: eh.description || '', // Ensure description is always present, even if empty, matching type
     }));
   }
   if (profileData.skills !== undefined) {
@@ -96,7 +96,8 @@ const saveProfileToFirestore = async (userId: string, profileData: Partial<Pick<
     dataToSave.educationHistory = profileData.educationHistory.map(edu => ({
       ...edu,
       fieldOfStudy: edu.fieldOfStudy || '',
-      description: edu.description || '',
+      gpa: edu.gpa || '',
+      accomplishments: edu.accomplishments || '',
     }));
   }
   if (profileData.backgroundInformation !== undefined) {
@@ -154,7 +155,8 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
             ...edu,
             id: edu.id || Date.now().toString() + Math.random(),
             fieldOfStudy: edu.fieldOfStudy || '',
-            description: edu.description || '',
+            gpa: edu.gpa || '',
+            accomplishments: edu.accomplishments || (edu.description || ''), // Map old description to accomplishments
         })),
         backgroundInformation: data.backgroundInformation || '',
         isLoadingProfile: false,
@@ -176,7 +178,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
               roleDescription: 'Lead developer for this awesome dev project.',
               link: 'https://example.com/devproject'
             }],
-            educationHistory: [{ id: 'devedu1', institution: 'Dev University', degree: 'B.S. Computer Science', dates: '2016-2020', description: 'Graduated with honors.' }],
+            educationHistory: [{ id: 'devedu1', institution: 'Dev University', degree: 'B.S. Computer Science', dates: '2016-2020', fieldOfStudy: 'Computer Science', gpa: '3.8', accomplishments: 'Graduated with honors. Dean\'s List all semesters.' }],
             backgroundInformation: 'Dev background info.',
             isLoadingProfile: false,
          });
@@ -203,14 +205,14 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
   },
 
   addEmploymentEntry: async (entry) => {
-    const newEntry: EmploymentEntry = { ...entry, id: Date.now().toString(), skillsDemonstrated: entry.skillsDemonstrated || [] };
+    const newEntry: EmploymentEntry = { ...entry, id: Date.now().toString(), skillsDemonstrated: entry.skillsDemonstrated || [], description: entry.description || '' };
     set((state) => ({ employmentHistory: [...state.employmentHistory, newEntry] }));
     await saveProfileToFirestore(get().userId!, { employmentHistory: get().employmentHistory });
   },
   updateEmploymentEntry: async (id, updatedEntry) => {
     set((state) => ({
       employmentHistory: state.employmentHistory.map(e => 
-        e.id === id ? {...e, ...updatedEntry, skillsDemonstrated: updatedEntry.skillsDemonstrated || e.skillsDemonstrated || []} : e
+        e.id === id ? {...e, ...updatedEntry, skillsDemonstrated: updatedEntry.skillsDemonstrated || e.skillsDemonstrated || [], description: updatedEntry.description || e.description || ''} : e
       ),
     }));
     await saveProfileToFirestore(get().userId!, { employmentHistory: get().employmentHistory });
@@ -242,14 +244,14 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
   },
   
   addProjectEntry: async (entry) => {
-    const newEntry: ProjectEntry = { ...entry, id: Date.now().toString(), skillsUsed: entry.skillsUsed || [] };
+    const newEntry: ProjectEntry = { ...entry, id: Date.now().toString(), skillsUsed: entry.skillsUsed || [], roleDescription: entry.roleDescription || '' };
     set((state) => ({ projects: [...state.projects, newEntry] }));
     await saveProfileToFirestore(get().userId!, { projects: get().projects });
   },
   updateProjectEntry: async (id, updatedEntry) => {
     set((state) => ({ 
       projects: state.projects.map(p => 
-        p.id === id ? {...p, ...updatedEntry, skillsUsed: updatedEntry.skillsUsed || p.skillsUsed || [] } : p
+        p.id === id ? {...p, ...updatedEntry, skillsUsed: updatedEntry.skillsUsed || p.skillsUsed || [], roleDescription: updatedEntry.roleDescription || p.roleDescription || '' } : p
       ) 
     }));
     await saveProfileToFirestore(get().userId!, { projects: get().projects });
@@ -260,13 +262,13 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
   },
 
   addEducationEntry: async (entry) => {
-    const newEntry: EducationEntry = { ...entry, id: Date.now().toString() };
+    const newEntry: EducationEntry = { ...entry, id: Date.now().toString(), fieldOfStudy: entry.fieldOfStudy || '', gpa: entry.gpa || '', accomplishments: entry.accomplishments || '' };
     set((state) => ({ educationHistory: [...state.educationHistory, newEntry] }));
     await saveProfileToFirestore(get().userId!, { educationHistory: get().educationHistory });
   },
   updateEducationEntry: async (id, updatedEntry) => {
     set((state) => ({ 
-      educationHistory: state.educationHistory.map(e => e.id === id ? {...e, ...updatedEntry} : e) 
+      educationHistory: state.educationHistory.map(e => e.id === id ? {...e, ...updatedEntry, fieldOfStudy: updatedEntry.fieldOfStudy || e.fieldOfStudy || '', gpa: updatedEntry.gpa || e.gpa || '', accomplishments: updatedEntry.accomplishments || e.accomplishments || '' } : e) 
     }));
     await saveProfileToFirestore(get().userId!, { educationHistory: get().educationHistory });
   },
@@ -281,7 +283,12 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
   },
 
   getAIPersonalDetails: () => get().personalDetails,
-  getAIEducationHistory: () => get().educationHistory.map(edu => ({ ...edu, fieldOfStudy: edu.fieldOfStudy || '', description: edu.description || '' })),
+  getAIEducationHistory: () => get().educationHistory.map(edu => ({ 
+    ...edu, 
+    fieldOfStudy: edu.fieldOfStudy || undefined, 
+    gpa: edu.gpa || undefined,
+    accomplishments: edu.accomplishments || undefined,
+  })),
   getAIEmploymentHistory: () => get().employmentHistory.map(({ title, company, dates, description, jobSummary, skillsDemonstrated }) => ({ title, company, dates, description: description || '', jobSummary: jobSummary || '', skillsDemonstrated: skillsDemonstrated || [] })),
   getAISkills: () => get().skills.map(skill => skill.name), 
   getAIProjects: () => get().projects.map(({ name, association, dates, skillsUsed, roleDescription, link }) => ({ 
@@ -383,4 +390,3 @@ if (process.env.NODE_ENV === 'development') {
     loadUserProfile("dummy_dev_user_id_for_initial_load_if_needed");
   }
 }
-

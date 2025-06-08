@@ -20,16 +20,15 @@ export type SkillEntry = {
 export type ProjectEntry = {
   id: string;
   name: string;
-  association: string; // e.g., school, personal, work
-  dates: string; // e.g., Jan 2023 - Mar 2023
-  skillsUsed: string[]; // List of skills utilized in the project
-  roleDescription: string; // Detailed description of user's role, contributions, duties
+  association: string; 
+  dates: string; 
+  skillsUsed: string[]; 
+  roleDescription: string; 
   link?: string;
 };
 
-// Re-export AI types if they are directly usable or map to them
 export type EmploymentHistory = AIEmpHistory;
-export type Skills = AISkills; // This is string[]
+export type Skills = AISkills; 
 export type Projects = AIProjects;
 
 
@@ -66,7 +65,8 @@ export interface EducationEntry {
   institution: string;
   degree: string;
   fieldOfStudy?: string;
-  dates: string; // e.g., "Aug 2018 - May 2022" or "Graduated May 2022"
-  description?: string; // e.g., GPA, honors, relevant coursework, activities
+  dates: string; 
+  gpa?: string; // Added GPA
+  accomplishments?: string; // Replaced description with accomplishments
 }
 

@@ -38,7 +38,7 @@ const ProjectsSchema = z.array(z.object({
 export type Projects = z.infer<typeof ProjectsSchema>;
 
 const SocialMediaLinkSchema = z.object({
-  id: z.string().optional(), // ID is primarily for client-side state, optional for AI
+  id: z.string().optional(), 
   platform: z.string().describe('Social media platform name (e.g., Twitter, GitHub, Portfolio)'),
   url: z.string().url().describe('URL to the social media profile or site'),
 });
@@ -55,12 +55,13 @@ const PersonalDetailsSchema = z.object({
 export type PersonalDetails = z.infer<typeof PersonalDetailsSchema>;
 
 const EducationEntrySchema = z.object({
-  id: z.string().optional(), // ID is primarily for client-side state, optional for AI
+  id: z.string().optional(), 
   institution: z.string().describe('Name of the educational institution.'),
   degree: z.string().describe('Degree obtained (e.g., Bachelor of Science).'),
   fieldOfStudy: z.string().optional().describe('Field of study (e.g., Computer Science).'),
   dates: z.string().describe('Dates of attendance or graduation (e.g., Aug 2018 - May 2022).'),
-  description: z.string().optional().describe('Additional details like GPA, honors, relevant coursework, or activities.'),
+  gpa: z.string().optional().describe('Grade Point Average (e.g., 3.8/4.0).'),
+  accomplishments: z.string().optional().describe('Additional details like honors, relevant coursework, activities, or thesis title.'),
 });
 export type EducationEntry = z.infer<typeof EducationEntrySchema>;
 
@@ -127,7 +128,8 @@ Education:
   Degree: {{{degree}}}
   {{#if fieldOfStudy}}Field of Study: {{{fieldOfStudy}}}{{/if}}
   Dates: {{{dates}}}
-  {{#if description}}Description: {{{description}}}{{/if}}
+  {{#if gpa}}GPA: {{{gpa}}}{{/if}}
+  {{#if accomplishments}}Accomplishments: {{{accomplishments}}}{{/if}}
 {{/each}}
 {{/if}}
 
@@ -173,4 +175,3 @@ const generateResumeFlow = ai.defineFlow(
     return output!;
   }
 );
-
