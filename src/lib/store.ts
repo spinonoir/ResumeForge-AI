@@ -36,14 +36,28 @@ interface UserProfileState {
   getAIProjects: () => Projects;
 }
 
-const saveProfileToFirestore = async (userId: string, profileData: Partial<UserProfileState>) => {
+const saveProfileToFirestore = async (userId: string, profileData: Partial<Pick<UserProfileState, 'employmentHistory' | 'skills' | 'projects' | 'backgroundInformation'>>) => {
   if (!userId) return;
   const profileRef = doc(db, 'users', userId, 'profile', 'data');
-  // Firestore expects plain objects, so we destructure and remove functions/non-serializable data
-  const { 
-    employmentHistory, skills, projects, backgroundInformation
-  } = profileData;
-  await setDoc(profileRef, { employmentHistory, skills, projects, backgroundInformation }, { merge: true });
+  
+  const dataToSave: { [key: string]: any } = {};
+
+  if (profileData.employmentHistory !== undefined) {
+    dataToSave.employmentHistory = profileData.employmentHistory;
+  }
+  if (profileData.skills !== undefined) {
+    dataToSave.skills = profileData.skills;
+  }
+  if (profileData.projects !== undefined) {
+    dataToSave.projects = profileData.projects;
+  }
+  if (profileData.backgroundInformation !== undefined) {
+    dataToSave.backgroundInformation = profileData.backgroundInformation;
+  }
+
+  if (Object.keys(dataToSave).length > 0) {
+    await setDoc(profileRef, dataToSave, { merge: true });
+  }
 };
 
 export const useUserProfileStore = create<UserProfileState>((set, get) => ({
@@ -73,7 +87,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
       if (process.env.NODE_ENV === 'development' && !userId) { // only if no user, this condition is tricky now
          set({
             employmentHistory: [
-              { id: 'dev1', title: 'Software Engineer (Dev)', company: 'Tech Solutions Inc.', dates: 'Jan 2020 - Present', description: 'Dev data.' },
+              { id: 'dev1', title: 'Software Engineer (Dev)', company: 'Tech Solutions Inc.', dates: 'Jan 2020 - Present', jobSummary: 'Dev summary.', description: 'Dev data.' },
             ],
             skills: [{ id: 'devs1', name: 'DevSkill' }],
             projects: [{ id: 'devp1', name: 'Dev Project', description: 'A dev project.' }],
@@ -140,7 +154,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
     await saveProfileToFirestore(get().userId!, { backgroundInformation });
   },
 
-  getAIEmploymentHistory: () => get().employmentHistory.map(({ title, company, dates, description }) => ({ title, company, dates, description })),
+  getAIEmploymentHistory: () => get().employmentHistory.map(({ title, company, dates, description, jobSummary }) => ({ title, company, dates, description, jobSummary: jobSummary || '' })),
   getAISkills: () => get().skills.map(skill => skill.name),
   getAIProjects: () => get().projects.map(({ name, description, link }) => ({ name, description, link: link || '' })),
 }));
@@ -172,9 +186,8 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
     const appsCollectionRef = collection(db, 'users', userId, 'applications');
     const querySnapshot = await getDocs(appsCollectionRef);
     const apps: SavedApplication[] = [];
-    querySnapshot.forEach((doc) => {
-      // Assuming doc.id is the Firestore document ID, which we use as SavedApplication.id
-      apps.push({ id: doc.id, ...doc.data() } as SavedApplication);
+    querySnapshot.forEach((docSnap) => { // Changed doc to docSnap to avoid conflict with firestore's doc function
+      apps.push({ id: docSnap.id, ...docSnap.data() } as SavedApplication);
     });
     set({ savedApplications: apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), isLoadingApplications: false });
   },
@@ -191,7 +204,6 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
     
     try {
       const docRef = await addDoc(appsCollectionRef, newApp);
-      // Add Firestore-generated ID to the local state object
       const appWithId: SavedApplication = { ...newApp, id: docRef.id };
       set((state) => ({
         savedApplications: [appWithId, ...state.savedApplications].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
@@ -222,12 +234,12 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
   }
 }));
 
-// Dev data population is now handled within loadUserProfile if no user data exists for a dev environment.
-// Consider removing explicit dev data population once Firebase is primary data source.
+// Dev data population logic (minor adjustment if needed based on UserProfileState structure)
 if (process.env.NODE_ENV === 'development') {
-  const { userId, loadUserProfile } = useUserProfileStore.getState();
-  if (!userId) { // Only if no user is logged in yet (during initial dev setup)
-    // loadUserProfile will handle dev data if profile doesn't exist.
-    // This is a bit indirect, might be better to have a specific dev data seeding function if needed.
+  const { userId, loadUserProfile, employmentHistory, skills, projects, backgroundInformation } = useUserProfileStore.getState();
+  // Check if profile is essentially empty for the dev case, rather than just !userId
+  const isProfileEmpty = employmentHistory.length === 0 && skills.length === 0 && projects.length === 0 && !backgroundInformation;
+  if (!userId && isProfileEmpty) { 
+    loadUserProfile("dummy_dev_user_id_for_initial_load"); // This will trigger the else path in loadUserProfile if dummy_dev_user_id_for_initial_load doesn't exist
   }
 }
