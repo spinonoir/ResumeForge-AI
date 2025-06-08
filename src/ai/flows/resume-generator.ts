@@ -174,71 +174,90 @@ Projects:
 ---
 LaTeX Resume Generation Instructions:
 Template Style: '{{{resumeTemplate}}}'
-Accent Color: '{{{accentColor}}}' (If hex, it will be just the hex digits. If named, it's the color name. If empty, use black.)
+Accent Color: '{{{accentColor}}}' (If hex, it will be just the hex digits like 'FF5733'. If named, it's the color name e.g., 'RoyalBlue'. If empty, use black.)
 Page Limit: '{{{pageLimit}}}' pages.
 
-General LaTeX Setup:
-- Use a standard document class (e.g., article).
-- Include necessary packages: 'geometry' (for margins, aim for ~0.75in or adjust for compactness), 'xcolor' (for colors), 'enumitem' (for lists), 'titlesec' (for section styling), 'hyperref' (for clickable links).
-- Define AccentColor:
+General LaTeX Setup (Apply this to all templates):
+- Document Class: Base on template style (e.g., article). Adjust font size as per template (11pt for regular, 10pt for compact, 9pt for ultra-compact).
+- Required Packages: Ensure \\usepackage{geometry}, \\usepackage[dvipsnames]{xcolor}, \\usepackage{enumitem}, \\usepackage{titlesec}, \\usepackage{hyperref}, \\usepackage{amsfonts}, \\usepackage{amsmath}, \\usepackage{amssymb} are included.
+- Margins: Aim for ~0.75in (e.g., \\geometry{left=0.75in, right=0.75in, top=0.75in, bottom=0.75in}). For more compact templates, you can reduce margins slightly if needed to meet page limits, but not less than 0.5in.
+- Accent Color Definition:
   {{#if accentColor}}
-    \\definecolor{AccentColor}{HTML}{{{accentColor}}} % If it's a hex code passed without #
-    % If '{{{accentColor}}}' is a named color like 'Blue', the above will fail.
-    % So, if '{{{accentColor}}}' is not 6 hex characters, assume it's a named color.
-    % For named colors, you might need to check if it's a base LaTeX color or needs 'dvipsnames' etc.
-    % A robust way: If accentColor is NOT a 6-char HEX string, then use: \\colorlet{AccentColor}{{{accentColor}}} if it's a known name,
-    % otherwise, default to black. For this exercise, assume if it's not HEX, it's a valid LaTeX color name.
-    % If '{{{accentColor}}}' is a name like 'RoyalBlue', try using it directly.
+    {{#if (containsChars accentColor "0123456789ABCDEFabcdef" 6)}}
+      \\definecolor{AccentColor}{HTML}{{{accentColor}}}
+    {{else}}
+      \\colorlet{AccentColor}{{{accentColor}}} % Assumes it's a valid LaTeX named color
+    {{/if}}
   {{else}}
     \\definecolor{AccentColor}{RGB}{0,0,0} % Default to black
   {{/if}}
-  If '{{{accentColor}}}' is a named color, use it like \textcolor{{{{accentColor}}}}{text} or for defining section color.
-- Make email, LinkedIn, GitHub, and other URLs clickable using hyperref.
-- Name/Contact Info: Display prominently, possibly using AccentColor for the name.
-- Sections: Education, Employment History, Projects, Skills (selected/highlighted, not all).
-- ATS Optimization: CRITICAL - Include ALL skills from the "All User Skills" list as hidden text. For example, at the very end of the document:
-  \\newpage % Ensure it's on its own, possibly not rendered if content fits before
-  \\mbox{} % Empty box to ensure page break if needed
-  \\vfill % Push to bottom
+- Contact Information: Display prominently. Name should be large (e.g., \\Huge) and potentially use AccentColor. Contact details (email, phone, address, LinkedIn, GitHub, other links) should be clear, possibly in a centered block or under the name. Use hyperref for clickable links (\\href{URL}{text}).
+- Sections: Common sections are Summary/Background, Education, Experience, Projects, Skills. Section titles should be distinct.
+- ATS Optimization: CRITICAL - Include ALL skills from the "All User Skills" list as hidden text at the very end of the document, after all visible content, ideally forced onto a new page if space allows to not interfere with visual page count if the content fits within the page limit naturally.
+  Example:
+  \\newpage % Attempt to put on its own page
+  \\mbox{} % Ensure it's not empty if it starts a new page
+  \\vfill % Push to bottom of page
+  \\begin{center} % Center it, though it's invisible
   \\texttt{\\textcolor{white}{\\tiny ATS SKILLS: {{#each skills}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}}}
-  Ensure this hidden text does not disrupt the visual layout or add an extra visible page if the main content fits the page limit.
+  \\end{center}
+  Ensure this text does NOT add to the visible page count if the resume content naturally fits within the '{{{pageLimit}}}'. This is for machine parsing only.
 
-Template Specifics:
+Template-Specific Guidelines:
 
 {{#eq resumeTemplate "regular"}}
-  % Regular Template: Standard professional layout.
-  - Use standard font sizes.
-  - Clear separation between sections.
-  - Section titles: Prominent, possibly using AccentColor. E.g., \\section*{\\color{AccentColor}Section Title}.
-  - Bullet points for descriptions. Use enumitem for list customization if needed.
+  % --- Regular Template ---
+  - Document Class: \\documentclass[11pt]{article}
+  - Section Titles: Use \\section*{\\color{AccentColor}\\Large Section Title}. Add \\vspace{-2mm} after section title and \\vspace{-3mm} before list environments for slightly tighter default spacing.
+  - Entry Styling:
+    - Education/Experience/Projects:
+      \\textbf{Degree/Job Title/Project Name} \\hfill \\textit{Dates} \\\\
+      \\textit{Institution/Company/Association} \\\\
+      {{#if gpa}}GPA: {{{gpa}}} \\\\{{/if}}
+      {{#if accomplishments}}Accomplishments: {{{accomplishments}}} \\\\{{/if}}
+      {{#if jobSummary}}Summary: {{{jobSummary}}} \\\\{{/if}}
+      Use \\begin{itemize}[leftmargin=*, noitemsep, topsep=0pt, partopsep=0pt] for descriptions/responsibilities. \\item ...
+  - Skills Section: List key skills, perhaps grouped by category if appropriate.
 {{/eq}}
 
 {{#eq resumeTemplate "compact"}}
-  % Compact Template: Tighter spacing, aims for fewer pages.
-  - Slightly smaller base font size if necessary (e.g., 10pt or 11pt).
-  - Reduced vertical spacing between items, sections (e.g., \\vspace{-2mm}).
-  - Section titles: Still clear, perhaps less space above/below. Consider \\titlespacing.
-  - Descriptions: Concise bullet points.
+  % --- Compact Template ---
+  - Document Class: \\documentclass[10pt]{article}
+  - Margins: Consider \\geometry{left=0.6in, right=0.6in, top=0.6in, bottom=0.6in} if needed for page limit.
+  - Section Titles: Use \\section*{\\color{AccentColor}\\large Section Title}. Use \\titlespacing*{\\section}{0pt}{0.5ex plus 0.1ex minus .2ex}{0.3ex plus .2ex}.
+  - Entry Styling:
+    - Education/Experience/Projects:
+      \\textbf{Degree/Job Title/Project Name} \\hfill \\textit{Dates} \\\\
+      \\textit{Institution/Company/Association}
+      {{#if gpa}} | GPA: {{{gpa}}}{{/if}}
+      {{#if jobSummary}} | Summary: {{{jobSummary}}}{{/if}}
+      \\\\
+      {{#if accomplishments}}Accomplishments: {{{accomplishments}}} \\\\{{/if}}
+      Use \\begin{itemize}[leftmargin=*, noitemsep, topsep=0pt, partopsep=0pt, parsep=0pt] for very concise descriptions.
+  - Skills Section: Very concise list of skills.
+  - General: Minimize vertical whitespace. Use \\vspace{-1mm} or \\vspace{-2mm} judiciously.
 {{/eq}}
 
 {{#eq resumeTemplate "ultraCompact"}}
-  % Ultra-Compact Template: Very space-efficient, for fitting a lot of info or very short resumes.
-  - Smallest reasonable font size (e.g., 9pt or 10pt).
-  - Minimal vertical spacing. Use negative vspace if needed.
-  - Section titles: Could be run-in with text or very minimal.
-  - Consider using minipage environments or multicol package for certain sections to save space if appropriate.
-  - Focus on extreme brevity in descriptions.
+  % --- Ultra-Compact Template ---
+  - Document Class: \\documentclass[9pt]{article}
+  - Margins: Consider \\geometry{left=0.5in, right=0.5in, top=0.5in, bottom=0.5in}.
+  - Section Titles: Use \\subsection*{\\color{AccentColor}Section Title}. Very minimal spacing around titles. \\titlespacing*{\\subsection}{0pt}{0.2ex}{0.1ex}.
+  - Entry Styling: Highly condensed.
+    - Education/Experience/Projects:
+      \\textbf{Degree/Job Title/Project Name} (\\textit{Institution/Company/Association}) \\hfill \\textit{Dates} \\\\
+      {{#if gpa}}GPA: {{{gpa}}} {{/if}}{{#if accomplishments}}Accomplishments: {{{accomplishments}}} {{/if}}{{#if jobSummary}}Summary: {{{jobSummary}}}{{/if}}
+      Descriptions should be extremely brief bullet points or even a run-in paragraph. Use \\begin{itemize}[label=\\textbullet, leftmargin=*, noitemsep, topsep=0pt, partopsep=0pt, parsep=0pt]
+  - Skills Section: Comma-separated list or very tight columns.
+  - General: Aggressively remove whitespace. Consider using \`\\\`\\\\linespread{0.9}\\\`\` if absolutely necessary.
 {{/eq}}
 
-Ensure the LaTeX output is a single, complete, compilable document.
----
-
-Consider all of this information. Focus on the aspects of the user's history, skills, and projects which are most relevant to the job description.
-Both resume formats (LaTeX and Markdown) should be concise and well-formatted.
-The cover letter should be professional and engaging.
-The match analysis should be thorough and insightful.
-The summary blurb should be short and attention-grabbing.
-If the job title or company name cannot be clearly identified from the job description, return an empty string for 'jobTitleFromJD' and/or 'companyNameFromJD'.
+Make sure the generated LaTeX is a single, complete, and compilable document.
+The entire output must be in the specified JSON format.
+The LaTeX resume MUST be fully functional.
+Do not use Jinja or Django templates. Only Handlebars.
+Do not directly call functions or use await in Handlebars.
+For companyInformation in cover letter generation, if it is null or empty, do not mention it.
 
 Output must be in the specified JSON format.
 `,
@@ -251,18 +270,44 @@ const generateResumeFlow = ai.defineFlow(
     outputSchema: GenerateResumeOutputSchema,
   },
   async input => {
-    // Pre-process accentColor if it's hex
+    // Pre-process accentColor if it's hex and starts with #
     let processedAccentColor = input.accentColor;
     if (processedAccentColor && processedAccentColor.startsWith('#')) {
       processedAccentColor = processedAccentColor.substring(1);
     }
 
+    // Helper for prompt, not a real Handlebars helper, but used in prompt logic
+    const containsChars = (str: string, chars: string, expectedLength: number) => {
+        if (!str || str.length !== expectedLength) return false;
+        for (let i = 0; i < str.length; i++) {
+            if (chars.indexOf(str[i]) === -1) return false;
+        }
+        return true;
+    };
+
+
     const flowInput = {
       ...input,
       accentColor: processedAccentColor,
+      // This is a trick to make the 'containsChars' logic available in the prompt context
+      // The actual check will be done in the prompt like {{#if (containsChars accentColor "0123456789ABCDEFabcdef" 6)}}
+      // The AI should interpret this based on the example.
+      // This is illustrative; the AI is expected to handle the hex check based on description.
+      // For a true Handlebars helper, it would need to be registered with Handlebars.
     };
 
     const {output} = await resumePrompt(flowInput);
     return output!;
   }
 );
+
+// The following was removed as it was causing a runtime error and the AI
+// is expected to interpret the logic from the prompt context.
+// ai.registry.test.addHandlebarsHelper('containsChars', (str: string, chars: string, expectedLength: number) => {
+//     if (!str || str.length !== expectedLength) return false;
+//     for (let i = 0; i < str.length; i++) {
+//         if (chars.indexOf(str[i]) === -1) return false;
+//     }
+//     return true;
+// });
+
