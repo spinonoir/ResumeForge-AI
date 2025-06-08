@@ -6,7 +6,7 @@ import { useUserProfileStore } from '@/lib/store';
 import type { EmploymentEntry, SkillEntry, ProjectEntry } from '@/types';
 import { EditableList, type EditableListRef } from '@/components/EditableList';
 import { BackgroundBuilder } from '@/components/profile/BackgroundBuilder';
-import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon } from 'lucide-react';
+import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon, CheckIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -44,7 +44,7 @@ export function ProfileTabContent() {
   const { 
     employmentHistory, addEmploymentEntry, updateEmploymentEntry, removeEmploymentEntry,
     skills, addSkill, removeSkill,
-    projects, addProjectEntry, updateProjectEntry, removeProjectEntry
+    projects, addProjectEntry: storeAddProjectEntry, updateProjectEntry: storeUpdateProjectEntry, removeProjectEntry
   } = useUserProfileStore();
 
   const employmentListRef = useRef<EditableListRef<EmploymentEntry>>(null);
@@ -102,8 +102,7 @@ export function ProfileTabContent() {
         name: data.projectName,
         association: data.projectAssociation,
         dates: data.projectDates,
-        // For the form, skillsUsed will be a comma-separated string. It's handled in EditableList save.
-        skillsUsed: data.projectSkillsUsed as any, // Temporarily cast, will be handled by initiateAddItem
+        skillsUsed: data.projectSkillsUsed as any, 
         roleDescription: data.projectRoleDescription,
         link: data.projectLink,
       });
@@ -148,15 +147,46 @@ export function ProfileTabContent() {
     }
     let skillsAddedCount = 0;
     for (const skill of suggestedSkills) {
+      // addSkill from the store now returns a boolean or similar to indicate if it was actually added
+      // or if it already existed. For now, we assume it handles toasts.
       await addSkill({ name: skill.name, category: skill.category });
       skillsAddedCount++; 
     }
     if (skillsAddedCount > 0) {
-        toast({ title: "Skills Added", description: `${skillsAddedCount} skills/categories added to your profile.` });
+        toast({ title: "Skills Processed", description: `${skillsAddedCount} skills/categories processed for your profile.` });
     }
     setSuggestedSkills([]);
     setSkillsTextToParse('');
     setIsAISkillsDialogOpen(false);
+  };
+
+  const processAndAddProjectSkillsToGlobalStore = async (skillsUsedString: string): Promise<string[]> => {
+    const skillNames = typeof skillsUsedString === 'string'
+      ? skillsUsedString.split(',').map(s => s.trim()).filter(s => s)
+      : [];
+
+    const currentGlobalSkills = useUserProfileStore.getState().skills;
+    
+    for (const name of skillNames) {
+      const existingGlobalSkill = currentGlobalSkills.find(gs => gs.name.toLowerCase() === name.toLowerCase());
+      if (!existingGlobalSkill) {
+        await addSkill({ name: name, category: "Uncategorized" }); // addSkill from store handles actual add and toast
+      }
+    }
+    return skillNames; // Return the processed array of skill names for the project
+  };
+
+  const handleAddProject = async (projectItem: Omit<ProjectEntry, 'id'>) => {
+    const skillsArray = await processAndAddProjectSkillsToGlobalStore((projectItem as any).skillsUsed);
+    await storeAddProjectEntry({ ...projectItem, skillsUsed: skillsArray });
+  };
+
+  const handleUpdateProject = async (id: string, projectItem: Partial<Omit<ProjectEntry, 'id'>>) => {
+    let skillsArray = projectItem.skillsUsed || [];
+    if ((projectItem as any).skillsUsed && typeof (projectItem as any).skillsUsed === 'string') {
+      skillsArray = await processAndAddProjectSkillsToGlobalStore((projectItem as any).skillsUsed);
+    }
+    await storeUpdateProjectEntry(id, { ...projectItem, skillsUsed: skillsArray as string[]});
   };
   
   const renderEmploymentItem = (item: EmploymentEntry) => (
@@ -249,6 +279,16 @@ export function ProfileTabContent() {
     </div>
   );
 
+  const isSkillVerified = (skillNameToCheck: string): boolean => {
+    const nameLower = skillNameToCheck.toLowerCase();
+    // Check in projects
+    if (projects.some(p => p.skillsUsed && p.skillsUsed.some(s => s.toLowerCase() === nameLower))) {
+      return true;
+    }
+    // Future: Check in employment history (e.g., if employment entries also get an explicit skillsUsed field)
+    return false;
+  };
+
 
   return (
     <div className="space-y-8">
@@ -276,7 +316,7 @@ export function ProfileTabContent() {
             <ListChecksIcon className="mr-2 h-6 w-6 text-primary" />
             Skills
           </CardTitle>
-          <CardDescription>Manage your professional skills. Use AI to import and categorize a list of skills.</CardDescription>
+          <CardDescription>Manage your professional skills. Use AI to import and categorize a list of skills. Skills used in projects will be marked with a check.</CardDescription>
         </CardHeader>
         <CardContent>
           <Button onClick={() => { setSuggestedSkills([]); setSkillsTextToParse(''); setIsAISkillsDialogOpen(true); }} className="w-full sm:w-auto">
@@ -287,8 +327,10 @@ export function ProfileTabContent() {
           ) : (
             <div className="flex flex-wrap gap-2 mt-4">
               {skills.map(skill => (
-                <span key={skill.id} className="flex items-center bg-accent text-accent-foreground px-3 py-1 rounded-full text-sm">
-                  {skill.name} {skill.category && <span className="text-xs opacity-80 ml-1.5">({skill.category})</span>}
+                <span key={skill.id} className="flex items-center bg-accent text-accent-foreground pl-3 pr-1 py-1 rounded-full text-sm">
+                  {skill.name}
+                  {skill.category && <span className="text-xs opacity-80 ml-1.5 mr-1">({skill.category})</span>}
+                  {isSkillVerified(skill.name) && <CheckIcon className="h-4 w-4 ml-0.5 text-green-300" />}
                   <Button variant="ghost" size="icon" className="ml-1 h-5 w-5 hover:bg-accent/80 text-accent-foreground/70 hover:text-accent-foreground" onClick={() => removeSkill(skill.id)} aria-label={`Remove skill ${skill.name}`}>
                     <XIcon className="h-3 w-3" />
                   </Button>
@@ -304,19 +346,8 @@ export function ProfileTabContent() {
         title="Projects"
         items={projects}
         fields={projectFields}
-        onAddItem={async (item) => {
-          // SkillsUsed is a string from textarea, convert to string[]
-          const skillsArray = typeof (item as any).skillsUsed === 'string' 
-            ? (item as any).skillsUsed.split(',').map((s: string) => s.trim()).filter((s: string) => s) 
-            : [];
-          await addProjectEntry({ ...item, skillsUsed: skillsArray });
-        }}
-        onUpdateItem={async (id, item) => {
-          const skillsArray = typeof (item as any).skillsUsed === 'string' 
-            ? (item as any).skillsUsed.split(',').map((s: string) => s.trim()).filter((s: string) => s) 
-            : item.skillsUsed; // if it's already an array (e.g. from AI prefill not yet saved)
-          await updateProjectEntry(id, { ...item, skillsUsed: skillsArray });
-        }}
+        onAddItem={handleAddProject}
+        onUpdateItem={handleUpdateProject}
         onRemoveItem={removeProjectEntry}
         renderItem={renderProjectItem}
         itemToString={(item) => item.name}
