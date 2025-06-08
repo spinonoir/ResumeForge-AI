@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useUserProfileStore, useApplicationsStore } from '@/lib/store';
 import { generateResume, type GenerateResumeInput, type GenerateResumeOutput } from '@/ai/flows/resume-generator';
@@ -17,7 +17,7 @@ import { toast } from '@/hooks/use-toast';
 
 interface GeneratedData extends GenerateResumeOutput {
   jobDescriptionUsed: string;
-  // resumeMarkdown is already part of GenerateResumeOutput
+  // resumeMarkdown, jobTitleFromJD, companyNameFromJD are already part of GenerateResumeOutput
 }
 
 export function NewApplicationTabContent() {
@@ -35,6 +35,8 @@ export function NewApplicationTabContent() {
     mutationFn: generateResume,
     onSuccess: (data) => {
       setGeneratedData({...data, jobDescriptionUsed: jobDescription});
+      setJobTitleForSaving(data.jobTitleFromJD || '');
+      setCompanyNameForSaving(data.companyNameFromJD || '');
       toast({ title: "Content Generated", description: "Resume, cover letter, and analysis are ready." });
     },
     onError: (error) => {
@@ -108,8 +110,12 @@ export function NewApplicationTabContent() {
       generatedSummary: generatedData.summary,
       matchAnalysis: generatedData.matchAnalysis,
     });
-    setJobTitleForSaving('');
-    setCompanyNameForSaving('');
+    // Optionally clear fields after saving, or let user decide
+    // setJobTitleForSaving('');
+    // setCompanyNameForSaving(''); 
+    // setGeneratedData(null); 
+    // setJobDescription('');
+    // setCompanyInfo('');
   };
 
   const renderOutputSection = (title: string, content: string, icon: React.ReactNode) => (
@@ -170,7 +176,7 @@ export function NewApplicationTabContent() {
         <div className="space-y-6">
           {renderOutputSection("Generated Summary", generatedData.summary, <CheckCircleIcon className="mr-2 h-5 w-5 text-green-500" />)}
           {renderOutputSection("Match Analysis", generatedData.matchAnalysis, <BarChart3Icon className="mr-2 h-5 w-5 text-blue-500" />)}
-          {renderOutputSection("LaTeX Resume", generatedData.resume, <FileTextIcon className="mr-2 h-5 w-5 text-purple-500" />)}
+          {/* {renderOutputSection("LaTeX Resume", generatedData.resume, <FileTextIcon className="mr-2 h-5 w-5 text-purple-500" />)} */}
           {renderOutputSection("Markdown Resume", generatedData.resumeMarkdown, <CodeIcon className="mr-2 h-5 w-5 text-teal-500" />)}
           
           <Card className="shadow-md">

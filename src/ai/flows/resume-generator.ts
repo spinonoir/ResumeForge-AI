@@ -83,6 +83,8 @@ const GenerateResumeOutputSchema = z.object({
   summary: z.string().describe('A summary blurb for the resume.'),
   coverLetter: z.string().describe('A cover letter tailored to the job description.'),
   matchAnalysis: z.string().describe('Analysis of how well the user matches the job description.'),
+  jobTitleFromJD: z.string().describe('The job title extracted from the job description. If not found, return an empty string.'),
+  companyNameFromJD: z.string().describe('The company name extracted from the job description. If not found, return an empty string.'),
 });
 export type GenerateResumeOutput = z.infer<typeof GenerateResumeOutputSchema>;
 
@@ -100,12 +102,14 @@ const resumePrompt = ai.definePrompt({
   output: {
     schema: GenerateResumeOutputSchema,
   },
-  prompt: `You are a resume expert. Create the following outputs based on the provided job description and user information:
+  prompt: `You are a resume expert. Based on the provided job description and user information, create the following outputs:
 1. A resume in LaTeX format.
 2. A resume in Markdown format.
 3. A summary blurb.
 4. A cover letter.
 5. An analysis of how well the user matches the job description.
+6. Extract the job title from the job description. If not explicitly found, infer it.
+7. Extract the company name from the job description. If not explicitly found, infer it.
 
 Job Description: {{{jobDescription}}}
 
@@ -169,6 +173,7 @@ Both resume formats (LaTeX and Markdown) should be concise and well-formatted.
 The cover letter should be professional and engaging.
 The match analysis should be thorough and insightful.
 The summary blurb should be short and attention-grabbing.
+If the job title or company name cannot be clearly identified from the job description, return an empty string for 'jobTitleFromJD' and/or 'companyNameFromJD'.
 
 Ensure the output is well-structured and easy to read.
 `,
