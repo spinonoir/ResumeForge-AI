@@ -6,7 +6,7 @@ import { useUserProfileStore } from '@/lib/store';
 import type { EmploymentEntry, SkillEntry, ProjectEntry } from '@/types';
 import { EditableList, type EditableListRef } from '@/components/EditableList';
 import { BackgroundBuilder } from '@/components/profile/BackgroundBuilder';
-import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon, CheckIcon } from 'lucide-react';
+import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon, CheckIcon, FileTextIcon, EditIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,6 +17,7 @@ import { parseEmploymentText, type ParseEmploymentTextInput, type ParseEmploymen
 import { parseAndCategorizeSkills, type ParseSkillsInput, type ParseSkillsOutput } from '@/ai/flows/skill-parser-categorizer-flow';
 import { parseProjectText, type ParseProjectTextInput, type ParseProjectTextOutput } from '@/ai/flows/project-text-parser-flow';
 import { toast } from '@/hooks/use-toast';
+import { Label } from '../ui/label';
 
 const employmentFields = [
   { name: 'title', label: 'Job Title', type: 'text' as 'text', placeholder: 'e.g., Software Engineer' },
@@ -59,6 +60,9 @@ export function ProfileTabContent() {
 
   const [isAIProjectParsingDialogOpen, setIsAIProjectParsingDialogOpen] = useState(false);
   const [projectTextToParse, setProjectTextToParse] = useState('');
+  const [pendingProjectAIData, setPendingProjectAIData] = useState<ParseProjectTextOutput | null>(null);
+  const [projectAISkillsEditText, setProjectAISkillsEditText] = useState('');
+
 
   const employmentParseMutation = useMutation<ParseEmploymentTextOutput, Error, ParseEmploymentTextInput>({
     mutationFn: parseEmploymentText,
@@ -98,22 +102,36 @@ export function ProfileTabContent() {
   const projectParseMutation = useMutation<ParseProjectTextOutput, Error, ParseProjectTextInput>({
     mutationFn: parseProjectText,
     onSuccess: (data) => {
-      projectListRef.current?.initiateAddItem({
-        name: data.projectName,
-        association: data.projectAssociation,
-        dates: data.projectDates,
-        skillsUsed: data.projectSkillsUsed as any, 
-        roleDescription: data.projectRoleDescription,
-        link: data.projectLink,
-      });
-      toast({ title: "Project Parsing Successful", description: "Project form pre-filled. Please review and save." });
-      setIsAIProjectParsingDialogOpen(false);
-      setProjectTextToParse('');
+      setPendingProjectAIData(data);
+      setProjectAISkillsEditText((data.projectSkillsUsed || []).join(', '));
+      toast({ title: "Project Parsing Successful", description: "Review the extracted details below and edit if needed." });
+      // Dialog remains open, showing pendingProjectAIData
     },
     onError: (error) => {
       toast({ variant: "destructive", title: "Project Parsing Failed", description: error.message });
+      setPendingProjectAIData(null);
     }
   });
+
+  const handleProceedWithAIParsedProjectData = () => {
+    if (!pendingProjectAIData) return;
+
+    const finalSkillsArray = projectAISkillsEditText.split(',').map(s => s.trim()).filter(s => s);
+    
+    projectListRef.current?.initiateAddItem({
+      name: pendingProjectAIData.projectName,
+      association: pendingProjectAIData.projectAssociation,
+      dates: pendingProjectAIData.projectDates,
+      skillsUsed: finalSkillsArray,
+      roleDescription: pendingProjectAIData.projectRoleDescription,
+      link: pendingProjectAIData.projectLink,
+    });
+
+    setIsAIProjectParsingDialogOpen(false);
+    setProjectTextToParse('');
+    setPendingProjectAIData(null);
+    setProjectAISkillsEditText('');
+  };
 
   const handleParseEmployment = () => {
     if (!textToParse.trim()) {
@@ -137,6 +155,7 @@ export function ProfileTabContent() {
       toast({ variant: "destructive", title: "No Text Provided", description: "Please paste project text to parse." });
       return;
     }
+    setPendingProjectAIData(null); // Clear previous pending data before new parse
     projectParseMutation.mutate({ textBlock: projectTextToParse });
   };
 
@@ -147,8 +166,6 @@ export function ProfileTabContent() {
     }
     let skillsAddedCount = 0;
     for (const skill of suggestedSkills) {
-      // addSkill from the store now returns a boolean or similar to indicate if it was actually added
-      // or if it already existed. For now, we assume it handles toasts.
       await addSkill({ name: skill.name, category: skill.category });
       skillsAddedCount++; 
     }
@@ -160,31 +177,31 @@ export function ProfileTabContent() {
     setIsAISkillsDialogOpen(false);
   };
 
-  const processAndAddProjectSkillsToGlobalStore = async (skillsUsedString: string): Promise<string[]> => {
-    const skillNames = typeof skillsUsedString === 'string'
-      ? skillsUsedString.split(',').map(s => s.trim()).filter(s => s)
-      : [];
+  const processAndAddProjectSkillsToGlobalStore = async (skillsUsedStringOrArray: string | string[]): Promise<string[]> => {
+    const skillNames = Array.isArray(skillsUsedStringOrArray)
+      ? skillsUsedStringOrArray.map(s => s.trim()).filter(s => s)
+      : skillsUsedStringOrArray.split(',').map(s => s.trim()).filter(s => s);
 
     const currentGlobalSkills = useUserProfileStore.getState().skills;
     
     for (const name of skillNames) {
       const existingGlobalSkill = currentGlobalSkills.find(gs => gs.name.toLowerCase() === name.toLowerCase());
       if (!existingGlobalSkill) {
-        await addSkill({ name: name, category: "Uncategorized" }); // addSkill from store handles actual add and toast
+        await addSkill({ name: name, category: "Uncategorized" });
       }
     }
-    return skillNames; // Return the processed array of skill names for the project
+    return skillNames; 
   };
 
   const handleAddProject = async (projectItem: Omit<ProjectEntry, 'id'>) => {
-    const skillsArray = await processAndAddProjectSkillsToGlobalStore((projectItem as any).skillsUsed);
+    const skillsArray = await processAndAddProjectSkillsToGlobalStore((projectItem as any).skillsUsed); // skillsUsed here is string from form
     await storeAddProjectEntry({ ...projectItem, skillsUsed: skillsArray });
   };
 
   const handleUpdateProject = async (id: string, projectItem: Partial<Omit<ProjectEntry, 'id'>>) => {
-    let skillsArray = projectItem.skillsUsed || [];
-    if ((projectItem as any).skillsUsed && typeof (projectItem as any).skillsUsed === 'string') {
-      skillsArray = await processAndAddProjectSkillsToGlobalStore((projectItem as any).skillsUsed);
+    let skillsArray = projectItem.skillsUsed || []; // Could be string or array depending on source
+    if (projectItem.skillsUsed) { // skillsUsed is string from form
+        skillsArray = await processAndAddProjectSkillsToGlobalStore(projectItem.skillsUsed as string | string[]);
     }
     await storeUpdateProjectEntry(id, { ...projectItem, skillsUsed: skillsArray as string[]});
   };
@@ -261,7 +278,12 @@ export function ProfileTabContent() {
         <Button
             variant="ghost"
             size="icon"
-            onClick={() => setIsAIProjectParsingDialogOpen(true)}
+            onClick={() => {
+              setProjectTextToParse('');
+              setPendingProjectAIData(null);
+              setProjectAISkillsEditText('');
+              setIsAIProjectParsingDialogOpen(true);
+            }}
             aria-label="Add new project with AI"
             title="Add with AI"
         >
@@ -281,12 +303,7 @@ export function ProfileTabContent() {
 
   const isSkillVerified = (skillNameToCheck: string): boolean => {
     const nameLower = skillNameToCheck.toLowerCase();
-    // Check in projects
-    if (projects.some(p => p.skillsUsed && p.skillsUsed.some(s => s.toLowerCase() === nameLower))) {
-      return true;
-    }
-    // Future: Check in employment history (e.g., if employment entries also get an explicit skillsUsed field)
-    return false;
+    return projects.some(p => p.skillsUsed && p.skillsUsed.some(s => s.toLowerCase() === nameLower));
   };
 
 
@@ -363,6 +380,7 @@ export function ProfileTabContent() {
       
       <BackgroundBuilder />
 
+      {/* Employment AI Parsing Dialog */}
       <Dialog open={isAIParsingDialogOpen} onOpenChange={setIsAIParsingDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -392,6 +410,7 @@ export function ProfileTabContent() {
         </DialogContent>
       </Dialog>
 
+      {/* Skills AI Parsing Dialog */}
       <Dialog open={isAISkillsDialogOpen} onOpenChange={(isOpen) => {
           setIsAISkillsDialogOpen(isOpen);
           if (!isOpen) {
@@ -452,31 +471,107 @@ export function ProfileTabContent() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isAIProjectParsingDialogOpen} onOpenChange={setIsAIProjectParsingDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+      {/* Project AI Parsing Dialog */}
+      <Dialog open={isAIProjectParsingDialogOpen} onOpenChange={(isOpen) => {
+        setIsAIProjectParsingDialogOpen(isOpen);
+        if (!isOpen) { // Reset states when dialog is closed externally
+            setProjectTextToParse('');
+            setPendingProjectAIData(null);
+            setProjectAISkillsEditText('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-[600px] md:max-w-[700px]">
           <DialogHeader>
-            <DialogTitle className="font-headline text-xl">Parse Project Details from Text</DialogTitle>
-            <DialogDescription>Paste a block of text describing your project, and we'll try to fill in the fields for you.</DialogDescription>
+            <DialogTitle className="font-headline text-xl">
+              <div className="flex items-center">
+                <FileTextIcon className="mr-2 h-5 w-5" /> Parse Project Details from Text
+              </div>
+            </DialogTitle>
+            {!pendingProjectAIData ? (
+              <DialogDescription>Paste a block of text describing your project. The AI will attempt to extract relevant details.</DialogDescription>
+            ) : (
+              <DialogDescription>Review the AI-extracted details below. Edit the skills if needed, then proceed.</DialogDescription>
+            )}
           </DialogHeader>
-          <div className="py-4 space-y-4">
-            <Textarea
-              placeholder="Paste project text here..."
-              value={projectTextToParse}
-              onChange={(e) => setProjectTextToParse(e.target.value)}
-              rows={10}
-              className="w-full"
-            />
+          
+          <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            {!pendingProjectAIData ? (
+              <Textarea
+                placeholder="Paste project text here..."
+                value={projectTextToParse}
+                onChange={(e) => setProjectTextToParse(e.target.value)}
+                rows={10}
+                className="w-full"
+                disabled={projectParseMutation.isPending}
+              />
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Suggested Project Name:</Label>
+                  <p className="text-sm p-2 border rounded-md bg-secondary/30">{pendingProjectAIData.projectName || "Not found"}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Suggested Association:</Label>
+                  <p className="text-sm p-2 border rounded-md bg-secondary/30">{pendingProjectAIData.projectAssociation || "Not found"}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Suggested Dates:</Label>
+                  <p className="text-sm p-2 border rounded-md bg-secondary/30">{pendingProjectAIData.projectDates || "Not found"}</p>
+                </div>
+                 <div>
+                  <Label htmlFor="ai-project-skills" className="text-xs text-muted-foreground">Suggested Skills (edit if needed, comma-separated):</Label>
+                  <Textarea
+                    id="ai-project-skills"
+                    value={projectAISkillsEditText}
+                    onChange={(e) => setProjectAISkillsEditText(e.target.value)}
+                    rows={3}
+                    className="w-full mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Suggested Role & Contributions:</Label>
+                  <ScrollArea className="h-28">
+                    <p className="text-sm p-2 border rounded-md bg-secondary/30 whitespace-pre-wrap">{pendingProjectAIData.projectRoleDescription || "Not found"}</p>
+                  </ScrollArea>
+                </div>
+                {pendingProjectAIData.projectLink && (
+                   <div>
+                    <Label className="text-xs text-muted-foreground">Suggested Link:</Label>
+                    <p className="text-sm p-2 border rounded-md bg-secondary/30 break-all">{pendingProjectAIData.projectLink}</p>
+                  </div>
+                )}
+              </div>
+            )}
+             {projectParseMutation.isError && (
+                <p className="text-sm text-destructive mt-2">Error: {projectParseMutation.error.message}</p>
+            )}
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button onClick={handleParseProjectText} disabled={projectParseMutation.isPending}>
-              {projectParseMutation.isPending && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
-              Parse and Pre-fill Form
-            </Button>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            {!pendingProjectAIData ? (
+              <>
+                <Button type="button" variant="outline" onClick={() => setIsAIProjectParsingDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleParseProjectText} disabled={projectParseMutation.isPending || !projectTextToParse.trim()}>
+                  {projectParseMutation.isPending && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+                  Parse Project Details
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button type="button" variant="outline" onClick={() => {
+                    setPendingProjectAIData(null);
+                    setProjectAISkillsEditText(''); 
+                    // projectTextToParse remains so user doesn't have to re-paste if they go back
+                }}>
+                  Back to Edit Text
+                </Button>
+                <Button onClick={handleProceedWithAIParsedProjectData}>
+                  <CheckIcon className="mr-2 h-4 w-4" /> Use Details & Continue to Form
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -485,3 +580,5 @@ export function ProfileTabContent() {
   );
 }
 
+
+    
