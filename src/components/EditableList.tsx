@@ -76,13 +76,6 @@ const EditableListInner = <T extends Item>(
 
     let itemToSave = { ...currentItem };
 
-    // Special handling for 'skillsUsed' if it's a project being saved
-    // This assumes that if 'skillsUsed' is a field, it's for projects and might be a comma-separated string
-    if ('skillsUsed' in itemToSave && typeof itemToSave.skillsUsed === 'string') {
-      (itemToSave as any).skillsUsed = itemToSave.skillsUsed.split(',').map(s => s.trim()).filter(s => s);
-    }
-
-
     if (editingId) {
       onUpdateItem(editingId, itemToSave);
     } else {
@@ -99,13 +92,9 @@ const EditableListInner = <T extends Item>(
 
   const handleEdit = (item: T) => {
     setEditingId(item.id);
-    let dataForForm = { ...item };
+    let dataForForm: Partial<Omit<T, 'id'>> = { ...item };
     if (transformInitialDataForForm) {
-      dataForForm = transformInitialDataForForm(dataForForm) as T;
-    }
-     // If skillsUsed exists and is an array, join it for the textarea
-    if (Array.isArray(dataForForm.skillsUsed)) {
-      (dataForForm as any).skillsUsed = dataForForm.skillsUsed.join(', ');
+      dataForForm = transformInitialDataForForm(dataForForm);
     }
     setCurrentItem(dataForForm);
     setIsAdding(false); 
@@ -117,10 +106,6 @@ const EditableListInner = <T extends Item>(
     let dataForForm = initialData || {};
     if (transformInitialDataForForm && initialData) {
       dataForForm = transformInitialDataForForm(initialData);
-    }
-    // If skillsUsed exists and is an array (e.g. from AI), join it for the textarea
-    if (dataForForm.skillsUsed && Array.isArray(dataForForm.skillsUsed)) {
-      (dataForForm as any).skillsUsed = (dataForForm.skillsUsed as string[]).join(', ');
     }
     setCurrentItem(dataForForm);
   };
@@ -143,7 +128,7 @@ const EditableListInner = <T extends Item>(
               value={(currentItem as any)[field.name] || ''}
               onChange={handleInputChange}
               placeholder={field.placeholder || field.label}
-              rows={field.name === 'skillsUsed' ? 2 : 3} // Shorter for skills
+              rows={field.name.toLowerCase().includes('skills') ? 2 : (field.name.toLowerCase().includes('description') ? 4 : 3)}
               className="w-full"
             />
           ) : (

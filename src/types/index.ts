@@ -8,6 +8,7 @@ export type EmploymentEntry = {
   dates: string;
   description: string;
   jobSummary?: string; 
+  skillsDemonstrated?: string[];
 };
 
 export type SkillEntry = {
@@ -29,7 +30,7 @@ export type ProjectEntry = {
 // Re-export AI types if they are directly usable or map to them
 export type EmploymentHistory = AIEmpHistory;
 export type Skills = AISkills; // This is string[]
-export type Projects = AIProjects; // Will be updated in resume-generator.ts to match new ProjectEntry richness
+export type Projects = AIProjects;
 
 
 export interface SavedApplication {

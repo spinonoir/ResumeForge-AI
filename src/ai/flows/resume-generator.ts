@@ -20,6 +20,7 @@ const EmploymentHistorySchema = z.array(z.object({
   dates: z.string().describe('Employment dates'),
   description: z.string().describe('Job description'),
   jobSummary: z.string().optional().describe('A brief summary of the job role and its core responsibilities.'),
+  skillsDemonstrated: z.array(z.string()).optional().describe('Skills demonstrated in this role.'),
 }));
 export type EmploymentHistory = z.infer<typeof EmploymentHistorySchema>;
 
@@ -80,6 +81,7 @@ Employment History:
   Dates: {{{dates}}}
   {{#if jobSummary}}Summary: {{{jobSummary}}}{{/if}}
   Description: {{{description}}}
+  {{#if skillsDemonstrated.length}}Skills Demonstrated: {{#each skillsDemonstrated}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
 {{/each}}
 
 Skills:

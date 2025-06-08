@@ -6,7 +6,7 @@ import { useUserProfileStore } from '@/lib/store';
 import type { EmploymentEntry, SkillEntry, ProjectEntry } from '@/types';
 import { EditableList, type EditableListRef } from '@/components/EditableList';
 import { BackgroundBuilder } from '@/components/profile/BackgroundBuilder';
-import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon, CheckIcon, FileTextIcon, EditIcon, ClipboardListIcon, FilterIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
+import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon, CheckIcon, FileTextIcon, EditIcon, ClipboardListIcon, FilterIcon, ChevronDownIcon, ChevronUpIcon, PackageSearchIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,6 +26,7 @@ const employmentFields = [
   { name: 'company', label: 'Company', type: 'text' as 'text', placeholder: 'e.g., Tech Solutions Inc.' },
   { name: 'dates', label: 'Dates', type: 'text' as 'text', placeholder: 'e.g., Jan 2020 - Present' },
   { name: 'jobSummary', label: 'Job Summary (1-2 sentences)', type: 'textarea' as 'textarea', placeholder: 'Brief overview of your role and core responsibilities.' },
+  { name: 'skillsDemonstrated', label: 'Skills Demonstrated (comma-separated)', type: 'textarea' as 'textarea', placeholder: 'e.g., React, Node.js, Project Management' },
   { name: 'description', label: 'Detailed Responsibilities & Achievements', type: 'textarea' as 'textarea', placeholder: 'List all key duties, functions, and accomplishments.' },
 ];
 
@@ -45,7 +46,7 @@ interface ParsedSkillFromAI {
 
 export function ProfileTabContent() {
   const { 
-    employmentHistory, addEmploymentEntry, updateEmploymentEntry, removeEmploymentEntry,
+    employmentHistory, addEmploymentEntry: storeAddEmploymentEntry, updateEmploymentEntry: storeUpdateEmploymentEntry, removeEmploymentEntry,
     skills, addSkill: storeAddSkill, removeSkill,
     projects, addProjectEntry: storeAddProjectEntry, updateProjectEntry: storeUpdateProjectEntry, removeProjectEntry
   } = useUserProfileStore();
@@ -53,8 +54,12 @@ export function ProfileTabContent() {
   const employmentListRef = useRef<EditableListRef<EmploymentEntry>>(null);
   const projectListRef = useRef<EditableListRef<ProjectEntry>>(null);
 
-  const [isAIParsingDialogOpen, setIsAIParsingDialogOpen] = useState(false);
-  const [textToParse, setTextToParse] = useState('');
+  const [isAIEmploymentParsingDialogOpen, setIsAIEmploymentParsingDialogOpen] = useState(false);
+  const [employmentTextToParse, setEmploymentTextToParse] = useState('');
+  const [pendingEmploymentAIData, setPendingEmploymentAIData] = useState<ParseEmploymentTextOutput | null>(null);
+  const [employmentAISkillsEditText, setEmploymentAISkillsEditText] = useState('');
+  const [expandedEmploymentId, setExpandedEmploymentId] = useState<string | null>(null);
+
 
   const [isAISkillsDialogOpen, setIsAISkillsDialogOpen] = useState(false);
   const [skillsTextToParse, setSkillsTextToParse] = useState('');
@@ -75,19 +80,13 @@ export function ProfileTabContent() {
   const employmentParseMutation = useMutation<ParseEmploymentTextOutput, Error, ParseEmploymentTextInput>({
     mutationFn: parseEmploymentText,
     onSuccess: (data) => {
-      employmentListRef.current?.initiateAddItem({
-        title: data.jobTitle,
-        company: data.company,
-        dates: data.employmentDates,
-        jobSummary: data.jobSummary,
-        description: data.jobDescription,
-      });
-      toast({ title: "Parsing Successful", description: "Employment form pre-filled. Please review and save." });
-      setIsAIParsingDialogOpen(false);
-      setTextToParse('');
+      setPendingEmploymentAIData(data);
+      setEmploymentAISkillsEditText((data.skillsDemonstrated || []).join(', '));
+      toast({ title: "Parsing Successful", description: "Review the extracted employment details below." });
     },
     onError: (error) => {
       toast({ variant: "destructive", title: "Parsing Failed", description: error.message });
+      setPendingEmploymentAIData(null);
     }
   });
 
@@ -120,6 +119,24 @@ export function ProfileTabContent() {
     }
   });
 
+  const handleProceedWithAIParsedEmploymentData = () => {
+    if (!pendingEmploymentAIData) return;
+    
+    employmentListRef.current?.initiateAddItem({
+      title: pendingEmploymentAIData.jobTitle,
+      company: pendingEmploymentAIData.company,
+      dates: pendingEmploymentAIData.employmentDates,
+      jobSummary: pendingEmploymentAIData.jobSummary,
+      description: pendingEmploymentAIData.jobDescription,
+      skillsDemonstrated: employmentAISkillsEditText.split(',').map(s => s.trim()).filter(s => s),
+    });
+
+    setIsAIEmploymentParsingDialogOpen(false);
+    setEmploymentTextToParse('');
+    setPendingEmploymentAIData(null);
+    setEmploymentAISkillsEditText('');
+  };
+
   const handleProceedWithAIParsedProjectData = () => {
     if (!pendingProjectAIData) return;
     
@@ -138,15 +155,16 @@ export function ProfileTabContent() {
     setProjectAISkillsEditText('');
   };
 
-  const handleParseEmployment = () => {
-    if (!textToParse.trim()) {
+  const handleParseEmploymentText = () => {
+    if (!employmentTextToParse.trim()) {
       toast({ variant: "destructive", title: "No Text Provided", description: "Please paste text to parse." });
       return;
     }
-    employmentParseMutation.mutate({ textBlock: textToParse });
+    setPendingEmploymentAIData(null);
+    employmentParseMutation.mutate({ textBlock: employmentTextToParse });
   };
 
-  const handleParseSkills = () => {
+  const handleParseSkillsText = () => {
     if (!skillsTextToParse.trim()) {
       toast({ variant: "destructive", title: "No Text Provided", description: "Please paste skills text to parse." });
       return;
@@ -186,83 +204,128 @@ export function ProfileTabContent() {
     setSkillsTextToParse('');
     setIsAISkillsDialogOpen(false);
   };
-
-  const findOrAddSkillAndGetCanonicalName = async (skillNameFromProject: string): Promise<string> => {
-    const { skills: globalSkills, addSkill: globalAddSkill } = useUserProfileStore.getState();
-    const trimmedProjectSkillName = skillNameFromProject.trim();
-    if (!trimmedProjectSkillName) return ""; 
-    const lcTrimmedProjectSkillName = trimmedProjectSkillName.toLowerCase();
   
-    const exactMatch = globalSkills.find(gs => gs.name.toLowerCase() === lcTrimmedProjectSkillName);
+  const findOrAddSkillAndGetCanonicalName = async (skillNameFromItem: string): Promise<string> => {
+    const { skills: globalSkills, addSkill: globalAddSkill } = useUserProfileStore.getState();
+    const trimmedItemSkillName = skillNameFromItem.trim();
+    if (!trimmedItemSkillName) return ""; 
+    const lcTrimmedItemSkillName = trimmedItemSkillName.toLowerCase();
+  
+    const exactMatch = globalSkills.find(gs => gs.name.toLowerCase() === lcTrimmedItemSkillName);
     if (exactMatch) {
       return exactMatch.name; 
     }
   
     const generalParentSkill = globalSkills.find(gs => {
       const lcGSName = gs.name.toLowerCase();
-      return lcTrimmedProjectSkillName.startsWith(lcGSName) && 
-             lcTrimmedProjectSkillName.length > lcGSName.length && 
-             (lcTrimmedProjectSkillName.charAt(lcGSName.length) === ' ' || 
-              lcTrimmedProjectSkillName.charAt(lcGSName.length) === '.' || 
-              !isNaN(parseInt(lcTrimmedProjectSkillName.charAt(lcGSName.length))) );
+      return lcTrimmedItemSkillName.startsWith(lcGSName) && 
+             lcTrimmedItemSkillName.length > lcGSName.length && 
+             (lcTrimmedItemSkillName.charAt(lcGSName.length) === ' ' || 
+              lcTrimmedItemSkillName.charAt(lcGSName.length) === '.' || 
+              !isNaN(parseInt(lcTrimmedItemSkillName.charAt(lcGSName.length))) );
     });
 
     if (generalParentSkill) {
       return generalParentSkill.name; 
     }
     
-    await globalAddSkill({ name: trimmedProjectSkillName, category: "Uncategorized" });
+    await globalAddSkill({ name: trimmedItemSkillName, category: "Uncategorized" });
     const updatedGlobalSkills = useUserProfileStore.getState().skills;
-    const finalMatch = updatedGlobalSkills.find(gs => gs.name.toLowerCase() === lcTrimmedProjectSkillName);
-    return finalMatch ? finalMatch.name : trimmedProjectSkillName; 
+    const finalMatch = updatedGlobalSkills.find(gs => gs.name.toLowerCase() === lcTrimmedItemSkillName);
+    return finalMatch ? finalMatch.name : trimmedItemSkillName; 
   };
   
-  const processProjectSkillsForGlobalStore = async (skillsUsedStringOrArray: string | string[]): Promise<string[]> => {
-    const skillNamesInput = Array.isArray(skillsUsedStringOrArray)
-      ? skillsUsedStringOrArray.map(s => s.trim()).filter(s => s)
-      : skillsUsedStringOrArray.split(',').map(s => s.trim()).filter(s => s);
+  const processItemSkillsForGlobalStore = async (skillsStringOrArray: string | string[]): Promise<string[]> => {
+    const skillNamesInput = Array.isArray(skillsStringOrArray)
+      ? skillsStringOrArray.map(s => s.trim()).filter(s => s)
+      : skillsStringOrArray.split(',').map(s => s.trim()).filter(s => s);
   
-    const canonicalSkillNamesForProject: string[] = [];
+    const canonicalSkillNamesForItem: string[] = [];
     for (const name of skillNamesInput) {
       if (name) { 
           const canonicalName = await findOrAddSkillAndGetCanonicalName(name);
-          if (canonicalName && !canonicalSkillNamesForProject.some(cn => cn.toLowerCase() === canonicalName.toLowerCase())) {
-            canonicalSkillNamesForProject.push(canonicalName);
+          if (canonicalName && !canonicalSkillNamesForItem.some(cn => cn.toLowerCase() === canonicalName.toLowerCase())) {
+            canonicalSkillNamesForItem.push(canonicalName);
           }
       }
     }
-    return canonicalSkillNamesForProject;
+    return canonicalSkillNamesForItem;
+  };
+
+  const handleAddEmployment = async (employmentItem: Omit<EmploymentEntry, 'id'>) => {
+    const skillsForEmployment = await processItemSkillsForGlobalStore((employmentItem as any).skillsDemonstrated || []);
+    await storeAddEmploymentEntry({ ...employmentItem, skillsDemonstrated: skillsForEmployment });
+  };
+  
+  const handleUpdateEmployment = async (id: string, employmentItem: Partial<Omit<EmploymentEntry, 'id'>>) => {
+    let skillsForEmployment = employmentItem.skillsDemonstrated || []; 
+    if (employmentItem.skillsDemonstrated && (typeof employmentItem.skillsDemonstrated === 'string' || Array.isArray(employmentItem.skillsDemonstrated))) { 
+        skillsForEmployment = await processItemSkillsForGlobalStore(employmentItem.skillsDemonstrated as string | string[]);
+    }
+    await storeUpdateEmploymentEntry(id, { ...employmentItem, skillsDemonstrated: skillsForEmployment as string[] });
   };
 
   const handleAddProject = async (projectItem: Omit<ProjectEntry, 'id'>) => {
-    const skillsForProject = await processProjectSkillsForGlobalStore((projectItem as any).skillsUsed);
+    const skillsForProject = await processItemSkillsForGlobalStore((projectItem as any).skillsUsed || []);
     await storeAddProjectEntry({ ...projectItem, skillsUsed: skillsForProject });
   };
   
   const handleUpdateProject = async (id: string, projectItem: Partial<Omit<ProjectEntry, 'id'>>) => {
     let skillsForProject = projectItem.skillsUsed || []; 
     if (projectItem.skillsUsed && (typeof projectItem.skillsUsed === 'string' || Array.isArray(projectItem.skillsUsed))) { 
-        skillsForProject = await processProjectSkillsForGlobalStore(projectItem.skillsUsed as string | string[]);
+        skillsForProject = await processItemSkillsForGlobalStore(projectItem.skillsUsed as string | string[]);
     }
     await storeUpdateProjectEntry(id, { ...projectItem, skillsUsed: skillsForProject as string[] });
   };
   
-  const renderEmploymentItem = (item: EmploymentEntry) => (
-    <div>
-      <h4 className="font-semibold text-md">{item.title}</h4>
-      <p className="text-sm text-muted-foreground">{item.company} | {item.dates}</p>
-      {item.jobSummary && (
-        <div className="mt-1">
-          <p className="text-xs font-medium text-muted-foreground">Summary:</p>
-          <p className="text-sm whitespace-pre-wrap">{item.jobSummary}</p>
+  const renderEmploymentItem = (item: EmploymentEntry) => {
+    const isExpanded = expandedEmploymentId === item.id;
+    return (
+      <div className="space-y-1.5">
+        <div 
+          className="flex justify-between items-start cursor-pointer group"
+          onClick={() => setExpandedEmploymentId(isExpanded ? null : item.id)}
+        >
+          <div className="flex-grow">
+            <h4 className="font-semibold text-md group-hover:text-primary transition-colors">{item.title}</h4>
+            <p className="text-sm text-muted-foreground">{item.company} | {item.dates}</p>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" aria-label={isExpanded ? "Collapse employment details" : "Expand employment details"}>
+            {isExpanded ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
+          </Button>
         </div>
-      )}
-      <div className="mt-1">
-        <p className="text-xs font-medium text-muted-foreground">Details:</p>
-        <p className="text-sm whitespace-pre-wrap">{item.description}</p>
+        {isExpanded && (
+           <div className="pl-2 pt-2 space-y-3 border-l-2 border-muted ml-1 pb-2">
+            {item.jobSummary && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-0.5">Summary:</p>
+                <p className="text-sm whitespace-pre-wrap">{item.jobSummary}</p>
+              </div>
+            )}
+            {item.skillsDemonstrated && item.skillsDemonstrated.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Skills Demonstrated:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {item.skillsDemonstrated.map(skillName => (
+                    <span
+                      key={skillName}
+                      className="bg-accent text-accent-foreground px-2.5 py-1 rounded-full text-xs font-medium"
+                    >
+                      {skillName}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-0.5">Responsibilities & Achievements:</p>
+              <p className="text-sm whitespace-pre-wrap">{item.description}</p>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderProjectItem = (item: ProjectEntry) => {
     const isExpanded = expandedProjectId === item.id;
@@ -328,7 +391,12 @@ export function ProfileTabContent() {
         <Button
             variant="ghost"
             size="icon"
-            onClick={() => setIsAIParsingDialogOpen(true)}
+            onClick={() => {
+              setEmploymentTextToParse('');
+              setPendingEmploymentAIData(null);
+              setEmploymentAISkillsEditText('');
+              setIsAIEmploymentParsingDialogOpen(true);
+            }}
             aria-label="Add new employment with AI"
             title="Add with AI"
         >
@@ -374,9 +442,11 @@ export function ProfileTabContent() {
     </div>
   );
 
-  const isSkillVerified = (skillNameToCheck: string): boolean => {
+  const isSkillVerifiedByItem = (skillNameToCheck: string): boolean => {
     const nameLower = skillNameToCheck.toLowerCase();
-    return projects.some(p => p.skillsUsed && p.skillsUsed.some(s => s.toLowerCase() === nameLower));
+    const inProjects = projects.some(p => p.skillsUsed && p.skillsUsed.some(s => s.toLowerCase() === nameLower));
+    const inEmployment = employmentHistory.some(e => e.skillsDemonstrated && e.skillsDemonstrated.some(s => s.toLowerCase() === nameLower));
+    return inProjects || inEmployment;
   };
 
   const uniqueCategories = useMemo(() => {
@@ -415,13 +485,20 @@ export function ProfileTabContent() {
         title="Employment History"
         items={employmentHistory}
         fields={employmentFields}
-        onAddItem={addEmploymentEntry}
-        onUpdateItem={updateEmploymentEntry}
+        onAddItem={handleAddEmployment}
+        onUpdateItem={handleUpdateEmployment}
         onRemoveItem={removeEmploymentEntry}
         renderItem={renderEmploymentItem}
         itemToString={(item) => `${item.title} at ${item.company}`}
         icon={<BriefcaseIcon className="h-6 w-6 text-primary" />}
         customAddButton={employmentCustomAddButton}
+        transformInitialDataForForm={(initialData) => {
+            let transformed = { ...initialData };
+            if (initialData && Array.isArray(initialData.skillsDemonstrated)) {
+              transformed.skillsDemonstrated = (initialData.skillsDemonstrated as string[]).join(', ');
+            }
+            return transformed;
+        }}
       />
 
       <Card className="shadow-lg">
@@ -430,7 +507,7 @@ export function ProfileTabContent() {
             <ListChecksIcon className="mr-2 h-6 w-6 text-primary" />
             Skills
           </CardTitle>
-          <CardDescription>Manage your professional skills. Filter by category and expand to see all. Skills used in projects are marked with a check.</CardDescription>
+          <CardDescription>Manage your professional skills. Filter by category and expand to see all. Skills used in projects or employment are marked with a check.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
@@ -487,7 +564,7 @@ export function ProfileTabContent() {
                     <span key={skill.id} className="flex items-center bg-accent text-accent-foreground pl-3 pr-1 py-1 rounded-full text-sm">
                       {skill.name}
                       {skill.category && <span className="text-xs opacity-80 ml-1.5 mr-1">({skill.category})</span>}
-                      {isSkillVerified(skill.name) && <CheckIcon className="h-4 w-4 ml-0.5 text-green-300" />}
+                      {isSkillVerifiedByItem(skill.name) && <CheckIcon className="h-4 w-4 ml-0.5 text-green-300" />}
                       <Button variant="ghost" size="icon" className="ml-1 h-5 w-5 hover:bg-accent/80 text-accent-foreground/70 hover:text-accent-foreground" onClick={() => removeSkill(skill.id)} aria-label={`Remove skill ${skill.name}`}>
                         <XIcon className="h-3 w-3" />
                       </Button>
@@ -519,7 +596,7 @@ export function ProfileTabContent() {
         onRemoveItem={removeProjectEntry}
         renderItem={renderProjectItem}
         itemToString={(item) => item.name}
-        icon={<LightbulbIcon className="h-6 w-6 text-primary" />}
+        icon={<PackageSearchIcon className="h-6 w-6 text-primary" />}
         customAddButton={projectCustomAddButton}
         transformInitialDataForForm={(initialData) => {
           if (initialData && Array.isArray(initialData.skillsUsed)) {
@@ -531,31 +608,62 @@ export function ProfileTabContent() {
       
       <BackgroundBuilder />
 
-      <Dialog open={isAIParsingDialogOpen} onOpenChange={setIsAIParsingDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+      <Dialog open={isAIEmploymentParsingDialogOpen} onOpenChange={(isOpen) => {
+        setIsAIEmploymentParsingDialogOpen(isOpen);
+        if(!isOpen) {
+            setEmploymentTextToParse('');
+            setPendingEmploymentAIData(null);
+            setEmploymentAISkillsEditText('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-[600px] md:max-w-[700px]">
           <DialogHeader>
             <DialogTitle className="font-headline text-xl flex items-center"><ClipboardListIcon className="mr-2 h-5 w-5"/>Parse Employment Details</DialogTitle>
-            <DialogDescription>Paste a block of text from your resume or job history, and we'll try to fill in the fields for you.</DialogDescription>
+             {!pendingEmploymentAIData ? (
+              <DialogDescription>Paste a block of text from your resume or job history. The AI will attempt to extract relevant details.</DialogDescription>
+            ) : (
+              <DialogDescription>Review the AI-extracted details below. Edit the skills if needed, then proceed.</DialogDescription>
+            )}
           </DialogHeader>
-          <div className="py-4 space-y-4">
-            <Textarea
-              placeholder="Paste employment text here..."
-              value={textToParse}
-              onChange={(e) => setTextToParse(e.target.value)}
-              rows={10}
-              className="w-full"
-            />
+          <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            {!pendingEmploymentAIData ? (
+                <Textarea
+                placeholder="Paste employment text here..."
+                value={employmentTextToParse}
+                onChange={(e) => setEmploymentTextToParse(e.target.value)}
+                rows={10}
+                className="w-full"
+                disabled={employmentParseMutation.isPending}
+                />
+            ) : (
+                <div className="space-y-3">
+                    <div><Label className="text-xs text-muted-foreground">Suggested Job Title:</Label><p className="text-sm p-2 border rounded-md bg-secondary/30">{pendingEmploymentAIData.jobTitle || "Not found"}</p></div>
+                    <div><Label className="text-xs text-muted-foreground">Suggested Company:</Label><p className="text-sm p-2 border rounded-md bg-secondary/30">{pendingEmploymentAIData.company || "Not found"}</p></div>
+                    <div><Label className="text-xs text-muted-foreground">Suggested Dates:</Label><p className="text-sm p-2 border rounded-md bg-secondary/30">{pendingEmploymentAIData.employmentDates || "Not found"}</p></div>
+                    <div><Label className="text-xs text-muted-foreground">Suggested Summary:</Label><ScrollArea className="h-20"><p className="text-sm p-2 border rounded-md bg-secondary/30 whitespace-pre-wrap">{pendingEmploymentAIData.jobSummary || "Not found"}</p></ScrollArea></div>
+                    <div>
+                        <Label htmlFor="ai-employment-skills" className="text-xs text-muted-foreground">Suggested Skills (edit if needed, comma-separated):</Label>
+                        <Textarea id="ai-employment-skills" value={employmentAISkillsEditText} onChange={(e) => setEmploymentAISkillsEditText(e.target.value)} rows={2} className="w-full mt-1"/>
+                    </div>
+                    <div><Label className="text-xs text-muted-foreground">Suggested Responsibilities & Achievements:</Label><ScrollArea className="h-28"><p className="text-sm p-2 border rounded-md bg-secondary/30 whitespace-pre-wrap">{pendingEmploymentAIData.jobDescription || "Not found"}</p></ScrollArea></div>
+                </div>
+            )}
+            {employmentParseMutation.isError && (<p className="text-sm text-destructive mt-2">Error: {employmentParseMutation.error.message}</p>)}
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button onClick={handleParseEmployment} disabled={employmentParseMutation.isPending}>
-              {employmentParseMutation.isPending && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
-              Parse and Pre-fill Form
-            </Button>
+          <DialogFooter className="gap-2 sm:gap-0">
+            {!pendingEmploymentAIData ? (
+                <>
+                <Button type="button" variant="outline" onClick={() => {setIsAIEmploymentParsingDialogOpen(false); setEmploymentTextToParse('');}}>Cancel</Button>
+                <Button onClick={handleParseEmploymentText} disabled={employmentParseMutation.isPending || !employmentTextToParse.trim()}>
+                    {employmentParseMutation.isPending && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />} Parse Details
+                </Button>
+                </>
+            ) : (
+                <>
+                <Button type="button" variant="outline" onClick={() => {setPendingEmploymentAIData(null); setEmploymentAISkillsEditText(''); }}>Back to Edit Text</Button>
+                <Button onClick={handleProceedWithAIParsedEmploymentData}><CheckIcon className="mr-2 h-4 w-4" /> Use Details & Continue</Button>
+                </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -607,7 +715,7 @@ export function ProfileTabContent() {
               </Button>
             </DialogClose>
             {suggestedSkills.length === 0 ? (
-              <Button onClick={handleParseSkills} disabled={skillsParseMutation.isPending || !skillsTextToParse.trim()}>
+              <Button onClick={handleParseSkillsText} disabled={skillsParseMutation.isPending || !skillsTextToParse.trim()}>
                 {skillsParseMutation.isPending && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
                 Parse and Suggest Skills
               </Button>
@@ -631,7 +739,7 @@ export function ProfileTabContent() {
         <DialogContent className="sm:max-w-[600px] md:max-w-[700px]">
           <DialogHeader>
             <DialogTitle className="font-headline text-xl flex items-center">
-                <FileTextIcon className="mr-2 h-5 w-5" /> Parse Project Details
+                <PackageSearchIcon className="mr-2 h-5 w-5" /> Parse Project Details
             </DialogTitle>
             {!pendingProjectAIData ? (
               <DialogDescription>Paste a block of text describing your project. The AI will attempt to extract relevant details.</DialogDescription>
@@ -670,7 +778,7 @@ export function ProfileTabContent() {
                     id="ai-project-skills"
                     value={projectAISkillsEditText}
                     onChange={(e) => setProjectAISkillsEditText(e.target.value)}
-                    rows={3}
+                    rows={2}
                     className="w-full mt-1"
                   />
                 </div>
@@ -730,5 +838,3 @@ export function ProfileTabContent() {
   );
 }
 
-
-    
