@@ -7,28 +7,28 @@ export type EmploymentEntry = {
   company: string;
   dates: string;
   description: string;
-  jobSummary?: string; 
+  jobSummary?: string;
   skillsDemonstrated?: string[];
 };
 
 export type SkillEntry = {
   id: string;
   name: string;
-  category?: string; 
+  category?: string;
 };
 
 export type ProjectEntry = {
   id: string;
   name: string;
-  association: string; 
-  dates: string; 
-  skillsUsed: string[]; 
-  roleDescription: string; 
+  association: string;
+  dates: string;
+  skillsUsed: string[];
+  roleDescription: string;
   link?: string;
 };
 
 export type EmploymentHistory = AIEmpHistory;
-export type Skills = AISkills; 
+export type Skills = AISkills;
 export type Projects = AIProjects;
 
 
@@ -42,7 +42,10 @@ export interface SavedApplication {
   generatedCoverLetter: string;
   generatedSummary: string;
   matchAnalysis: string;
-  createdAt: string; 
+  createdAt: string;
+  resumeTemplateUsed?: string;
+  accentColorUsed?: string;
+  pageLimitUsed?: number;
 }
 
 export interface SocialMediaLink {
@@ -66,7 +69,7 @@ export interface EducationEntry {
   institution: string;
   degree: string;
   fieldOfStudy?: string;
-  dates: string; 
+  dates: string;
   gpa?: string;
   accomplishments?: string;
 }

@@ -79,9 +79,9 @@ export function NewApplicationTabContent() {
 
     let finalAccentColor = accentColorInput.trim();
     if (finalAccentColor.startsWith('#')) {
-      finalAccentColor = finalAccentColor.substring(1); 
+      finalAccentColor = finalAccentColor.substring(1);
     }
-    
+
     resumeMutation.mutate({
       jobDescription,
       personalDetails: getAIPersonalDetails(),
@@ -103,11 +103,11 @@ export function NewApplicationTabContent() {
     }
     coverLetterRefineMutation.mutate({
       jobDescription: generatedData.jobDescriptionUsed,
-      userBackground: backgroundInformation, 
+      userBackground: backgroundInformation,
       companyInformation: companyInfo,
     });
   };
-  
+
   const handleSaveApplication = () => {
     if (!generatedData) {
       toast({ variant: "destructive", title: "Nothing to Save", description: "Please generate content first." });
@@ -126,6 +126,9 @@ export function NewApplicationTabContent() {
       generatedCoverLetter: generatedData.coverLetter,
       generatedSummary: generatedData.summary,
       matchAnalysis: generatedData.matchAnalysis,
+      resumeTemplateUsed: selectedTemplate,
+      accentColorUsed: accentColorInput,
+      pageLimitUsed: pageLimitInput,
     });
   };
 
@@ -191,18 +194,18 @@ export function NewApplicationTabContent() {
             </div>
             <div>
               <Label htmlFor="accent-color">Accent Color (Hex or Name)</Label>
-              <Input 
+              <Input
                 id="accent-color"
-                placeholder="e.g., #007ACC or Blue" 
+                placeholder="e.g., #007ACC or Blue"
                 value={accentColorInput}
                 onChange={(e) => setAccentColorInput(e.target.value)}
               />
             </div>
             <div>
               <Label htmlFor="page-limit">Page Limit</Label>
-              <Input 
+              <Input
                 id="page-limit"
-                type="number" 
+                type="number"
                 value={pageLimitInput}
                 onChange={(e) => setPageLimitInput(Math.max(1, parseInt(e.target.value, 10) || 1))}
                 min="1"
@@ -235,12 +238,11 @@ export function NewApplicationTabContent() {
         <div className="space-y-6">
           {renderOutputSection("Generated Summary", generatedData.summary, <CheckCircleIcon className="mr-2 h-5 w-5 text-green-500" />)}
           {renderOutputSection("Match Analysis", generatedData.matchAnalysis, <BarChart3Icon className="mr-2 h-5 w-5 text-blue-500" />)}
-          
-          {/* LaTeX resume display is commented out as per user request */}
+
           {/* {renderOutputSection("LaTeX Resume", generatedData.resume, <FileTextIcon className="mr-2 h-5 w-5 text-purple-500" />)} */}
-          
+
           {renderOutputSection("Markdown Resume", generatedData.resumeMarkdown, <CodeIcon className="mr-2 h-5 w-5 text-teal-500" />)}
-          
+
           <Card className="shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center text-lg font-headline">
@@ -253,7 +255,7 @@ export function NewApplicationTabContent() {
                 <pre className="text-sm whitespace-pre-wrap break-all font-code">{generatedData.coverLetter}</pre>
               </ScrollArea>
               <div className="mt-4 space-y-2">
-                <Input 
+                <Input
                   placeholder="Enter company information for refinement (optional)"
                   value={companyInfo}
                   onChange={(e) => setCompanyInfo(e.target.value)}
@@ -281,12 +283,12 @@ export function NewApplicationTabContent() {
                 <CardDescription>Save this generated application package for future reference. Job title and company name will be auto-filled if extracted by AI.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <Input 
+                <Input
                     placeholder="Job Title (e.g., Senior Software Engineer)"
                     value={jobTitleForSaving}
                     onChange={(e) => setJobTitleForSaving(e.target.value)}
                 />
-                <Input 
+                <Input
                     placeholder="Company Name (e.g., Google)"
                     value={companyNameForSaving}
                     onChange={(e) => setCompanyNameForSaving(e.target.value)}
