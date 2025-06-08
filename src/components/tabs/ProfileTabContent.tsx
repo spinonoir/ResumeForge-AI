@@ -27,8 +27,11 @@ const employmentFields = [
 ];
 
 const projectFields = [
-  { name: 'name', label: 'Project Name', type: 'text' as 'text', placeholder: 'e.g., Personal Portfolio Website' },
-  { name: 'description', label: 'Description', type: 'textarea' as 'textarea', placeholder: 'Describe the project and your role.' },
+  { name: 'name', label: 'Project Name', type: 'text' as 'text', placeholder: 'e.g., My Awesome App' },
+  { name: 'association', label: 'Association', type: 'text' as 'text', placeholder: 'e.g., Personal, School, Work' },
+  { name: 'dates', label: 'Dates Active', type: 'text' as 'text', placeholder: 'e.g., Jan 2023 - Mar 2023' },
+  { name: 'skillsUsed', label: 'Skills Used (comma-separated)', type: 'textarea' as 'textarea', placeholder: 'e.g., React, Node.js, Python' },
+  { name: 'roleDescription', label: 'Your Role & Contributions', type: 'textarea' as 'textarea', placeholder: 'Describe your duties, contributions, and tasks.' },
   { name: 'link', label: 'Link (Optional)', type: 'text' as 'text', placeholder: 'e.g., https://github.com/yourproject' },
 ];
 
@@ -97,7 +100,11 @@ export function ProfileTabContent() {
     onSuccess: (data) => {
       projectListRef.current?.initiateAddItem({
         name: data.projectName,
-        description: data.projectDescription,
+        association: data.projectAssociation,
+        dates: data.projectDates,
+        // For the form, skillsUsed will be a comma-separated string. It's handled in EditableList save.
+        skillsUsed: data.projectSkillsUsed as any, // Temporarily cast, will be handled by initiateAddItem
+        roleDescription: data.projectRoleDescription,
         link: data.projectLink,
       });
       toast({ title: "Project Parsing Successful", description: "Project form pre-filled. Please review and save." });
@@ -172,8 +179,27 @@ export function ProfileTabContent() {
   const renderProjectItem = (item: ProjectEntry) => (
      <div>
       <h4 className="font-semibold text-md">{item.name}</h4>
-      {item.link && <a href={item.link.startsWith('http') ? item.link : `https://${item.link}`} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline break-all">{item.link}</a>}
-      <p className="text-sm mt-1 whitespace-pre-wrap">{item.description}</p>
+      <p className="text-sm text-muted-foreground">
+        {item.association} | {item.dates}
+      </p>
+      {item.skillsUsed && item.skillsUsed.length > 0 && (
+        <p className="text-sm mt-1">
+          <span className="font-medium">Skills Used:</span> {item.skillsUsed.join(', ')}
+        </p>
+      )}
+      <p className="text-sm mt-1 whitespace-pre-wrap">
+        <span className="font-medium">Role & Contributions:</span> {item.roleDescription}
+      </p>
+      {item.link && (
+        <a 
+            href={item.link.startsWith('http') ? item.link : `https://${item.link}`} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="text-sm text-primary hover:underline break-all block mt-1"
+        >
+            Project Link
+        </a>
+      )}
     </div>
   );
 
@@ -278,13 +304,30 @@ export function ProfileTabContent() {
         title="Projects"
         items={projects}
         fields={projectFields}
-        onAddItem={addProjectEntry}
-        onUpdateItem={updateProjectEntry}
+        onAddItem={async (item) => {
+          // SkillsUsed is a string from textarea, convert to string[]
+          const skillsArray = typeof (item as any).skillsUsed === 'string' 
+            ? (item as any).skillsUsed.split(',').map((s: string) => s.trim()).filter((s: string) => s) 
+            : [];
+          await addProjectEntry({ ...item, skillsUsed: skillsArray });
+        }}
+        onUpdateItem={async (id, item) => {
+          const skillsArray = typeof (item as any).skillsUsed === 'string' 
+            ? (item as any).skillsUsed.split(',').map((s: string) => s.trim()).filter((s: string) => s) 
+            : item.skillsUsed; // if it's already an array (e.g. from AI prefill not yet saved)
+          await updateProjectEntry(id, { ...item, skillsUsed: skillsArray });
+        }}
         onRemoveItem={removeProjectEntry}
         renderItem={renderProjectItem}
         itemToString={(item) => item.name}
         icon={<LightbulbIcon className="h-6 w-6 text-primary" />}
         customAddButton={projectCustomAddButton}
+        transformInitialDataForForm={(initialData) => {
+          if (initialData && Array.isArray(initialData.skillsUsed)) {
+            return { ...initialData, skillsUsed: (initialData.skillsUsed as string[]).join(', ') };
+          }
+          return initialData;
+        }}
       />
       
       <BackgroundBuilder />
@@ -410,3 +453,4 @@ export function ProfileTabContent() {
     </div>
   );
 }
+

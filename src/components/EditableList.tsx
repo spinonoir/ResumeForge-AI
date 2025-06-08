@@ -31,10 +31,11 @@ interface EditableListProps<T extends Item> {
   onAddItem: (item: Omit<T, 'id'>) => void;
   onUpdateItem: (id: string, item: Partial<Omit<T, 'id'>>) => void;
   onRemoveItem: (id: string) => void;
-  renderItem?: (item: T) => ReactNode; // onEdit and onRemove are no longer passed
+  renderItem?: (item: T) => ReactNode;
   itemToString: (item: T) => string; 
   icon?: ReactNode;
   customAddButton?: ReactNode;
+  transformInitialDataForForm?: (initialData: Partial<Omit<T, 'id'>>) => Partial<Omit<T, 'id'>>;
 }
 
 const EditableListInner = <T extends Item>(
@@ -49,6 +50,7 @@ const EditableListInner = <T extends Item>(
     itemToString,
     icon,
     customAddButton,
+    transformInitialDataForForm,
   }: EditableListProps<T>,
   ref: React.ForwardedRef<EditableListRef<T>>
 ) => {
@@ -72,10 +74,19 @@ const EditableListInner = <T extends Item>(
       return;
     }
 
+    let itemToSave = { ...currentItem };
+
+    // Special handling for 'skillsUsed' if it's a project being saved
+    // This assumes that if 'skillsUsed' is a field, it's for projects and might be a comma-separated string
+    if ('skillsUsed' in itemToSave && typeof itemToSave.skillsUsed === 'string') {
+      (itemToSave as any).skillsUsed = itemToSave.skillsUsed.split(',').map(s => s.trim()).filter(s => s);
+    }
+
+
     if (editingId) {
-      onUpdateItem(editingId, currentItem);
+      onUpdateItem(editingId, itemToSave);
     } else {
-      const newItemData = { ...currentItem } as Omit<T, 'id'>;
+      const newItemData = { ...itemToSave } as Omit<T, 'id'>;
       fields.forEach(field => {
         if (!(field.name in newItemData)) {
           (newItemData as any)[field.name] = field.type === 'textarea' ? '' : ''; 
@@ -88,14 +99,30 @@ const EditableListInner = <T extends Item>(
 
   const handleEdit = (item: T) => {
     setEditingId(item.id);
-    setCurrentItem(item);
+    let dataForForm = { ...item };
+    if (transformInitialDataForForm) {
+      dataForForm = transformInitialDataForForm(dataForForm) as T;
+    }
+     // If skillsUsed exists and is an array, join it for the textarea
+    if (Array.isArray(dataForForm.skillsUsed)) {
+      (dataForForm as any).skillsUsed = dataForForm.skillsUsed.join(', ');
+    }
+    setCurrentItem(dataForForm);
     setIsAdding(false); 
   };
 
   const handleInitiateAddItem = (initialData?: Partial<Omit<T, 'id'>>) => {
     setIsAdding(true);
     setEditingId(null);
-    setCurrentItem(initialData || {});
+    let dataForForm = initialData || {};
+    if (transformInitialDataForForm && initialData) {
+      dataForForm = transformInitialDataForForm(initialData);
+    }
+    // If skillsUsed exists and is an array (e.g. from AI), join it for the textarea
+    if (dataForForm.skillsUsed && Array.isArray(dataForForm.skillsUsed)) {
+      (dataForForm as any).skillsUsed = (dataForForm.skillsUsed as string[]).join(', ');
+    }
+    setCurrentItem(dataForForm);
   };
 
   useImperativeHandle(ref, () => ({
@@ -116,7 +143,7 @@ const EditableListInner = <T extends Item>(
               value={(currentItem as any)[field.name] || ''}
               onChange={handleInputChange}
               placeholder={field.placeholder || field.label}
-              rows={3}
+              rows={field.name === 'skillsUsed' ? 2 : 3} // Shorter for skills
               className="w-full"
             />
           ) : (
@@ -195,3 +222,4 @@ const EditableListInner = <T extends Item>(
   );
 }
 export const EditableList = React.forwardRef(EditableListInner);
+

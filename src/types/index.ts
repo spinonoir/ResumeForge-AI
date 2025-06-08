@@ -7,26 +7,29 @@ export type EmploymentEntry = {
   company: string;
   dates: string;
   description: string;
-  jobSummary?: string; // Added job summary
+  jobSummary?: string; 
 };
 
 export type SkillEntry = {
   id: string;
   name: string;
-  category?: string; // Added optional category
+  category?: string; 
 };
 
 export type ProjectEntry = {
   id: string;
   name: string;
-  description: string;
+  association: string; // e.g., school, personal, work
+  dates: string; // e.g., Jan 2023 - Mar 2023
+  skillsUsed: string[]; // List of skills utilized in the project
+  roleDescription: string; // Detailed description of user's role, contributions, duties
   link?: string;
 };
 
 // Re-export AI types if they are directly usable or map to them
 export type EmploymentHistory = AIEmpHistory;
 export type Skills = AISkills; // This is string[]
-export type Projects = AIProjects;
+export type Projects = AIProjects; // Will be updated in resume-generator.ts to match new ProjectEntry richness
 
 
 export interface SavedApplication {
@@ -40,3 +43,4 @@ export interface SavedApplication {
   matchAnalysis: string;
   createdAt: string; 
 }
+

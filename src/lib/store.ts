@@ -46,11 +46,15 @@ const saveProfileToFirestore = async (userId: string, profileData: Partial<Pick<
     dataToSave.employmentHistory = profileData.employmentHistory;
   }
   if (profileData.skills !== undefined) {
-    // Ensure skills array doesn't contain undefined if passed partially
     dataToSave.skills = profileData.skills.map(s => ({ name: s.name, category: s.category || null, id: s.id }));
   }
   if (profileData.projects !== undefined) {
-    dataToSave.projects = profileData.projects;
+    // Ensure skillsUsed is always an array, even if empty, and link is either string or null
+    dataToSave.projects = profileData.projects.map(p => ({
+      ...p,
+      skillsUsed: p.skillsUsed || [],
+      link: p.link || null, 
+    }));
   }
   if (profileData.backgroundInformation !== undefined) {
     dataToSave.backgroundInformation = profileData.backgroundInformation;
@@ -78,23 +82,36 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
       const data = docSnap.data();
       set({
         employmentHistory: data.employmentHistory || [],
-        skills: (data.skills || []).map((s: any) => ({ // Ensure category is at least undefined
-            id: s.id || Date.now().toString() + Math.random(), // Ensure ID exists
+        skills: (data.skills || []).map((s: any) => ({ 
+            id: s.id || Date.now().toString() + Math.random(), 
             name: s.name, 
             category: s.category === null ? undefined : s.category 
         })),
-        projects: data.projects || [],
+        projects: (data.projects || []).map((p: any) => ({
+            ...p,
+            id: p.id || Date.now().toString() + Math.random(),
+            skillsUsed: p.skillsUsed || [], // Ensure skillsUsed is an array
+            link: p.link === null ? undefined : p.link, // Ensure link is undefined if null
+        })),
         backgroundInformation: data.backgroundInformation || '',
         isLoadingProfile: false,
       });
     } else {
-      if (process.env.NODE_ENV === 'development' && !userId.startsWith('dummy_dev_user_id')) { 
+      if (process.env.NODE_ENV === 'development' && (!userId || userId.startsWith('dummy_dev_user_id'))) { 
          set({
             employmentHistory: [
-              { id: 'dev1', title: 'Software Engineer (Dev)', company: 'Tech Solutions Inc.', dates: 'Jan 2020 - Present', jobSummary: 'Dev summary.', description: 'Dev data.' },
+              { id: 'dev1', title: 'Software Engineer (Dev)', company: 'Tech Solutions Inc.', dates: 'Jan 2020 - Present', jobSummary: 'Dev summary for test.', description: 'Dev data for test description.' },
             ],
             skills: [{ id: 'devs1', name: 'DevSkill', category: 'DevCategory' }],
-            projects: [{ id: 'devp1', name: 'Dev Project', description: 'A dev project.' }],
+            projects: [{ 
+              id: 'devp1', 
+              name: 'Dev Project', 
+              association: 'Personal', 
+              dates: '2023', 
+              skillsUsed: ['React', 'Firebase'], 
+              roleDescription: 'Lead developer for this awesome dev project.',
+              link: 'https://example.com/devproject'
+            }],
             backgroundInformation: 'Dev background info.',
             isLoadingProfile: false,
          });
@@ -135,7 +152,6 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
       name: skillData.name.trim(),
       category: skillData.category?.trim() || undefined 
     };
-    // Prevent adding duplicate skill names
     if (get().skills.some(s => s.name.toLowerCase() === newSkill.name.toLowerCase())) {
         toast({ variant: "default", title: "Skill Exists", description: `Skill "${newSkill.name}" is already in your profile.`});
         return;
@@ -149,12 +165,16 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
   },
   
   addProjectEntry: async (entry) => {
-    const newEntry = { ...entry, id: Date.now().toString() };
+    const newEntry: ProjectEntry = { ...entry, id: Date.now().toString(), skillsUsed: entry.skillsUsed || [] };
     set((state) => ({ projects: [...state.projects, newEntry] }));
     await saveProfileToFirestore(get().userId!, { projects: get().projects });
   },
   updateProjectEntry: async (id, updatedEntry) => {
-    set((state) => ({ projects: state.projects.map(p => p.id === id ? {...p, ...updatedEntry} : p) }));
+    set((state) => ({ 
+      projects: state.projects.map(p => 
+        p.id === id ? {...p, ...updatedEntry, skillsUsed: updatedEntry.skillsUsed || p.skillsUsed || [] } : p
+      ) 
+    }));
     await saveProfileToFirestore(get().userId!, { projects: get().projects });
   },
   removeProjectEntry: async (id) => {
@@ -168,8 +188,15 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
   },
 
   getAIEmploymentHistory: () => get().employmentHistory.map(({ title, company, dates, description, jobSummary }) => ({ title, company, dates, description, jobSummary: jobSummary || '' })),
-  getAISkills: () => get().skills.map(skill => skill.name), // For AI, just pass names
-  getAIProjects: () => get().projects.map(({ name, description, link }) => ({ name, description, link: link || '' })),
+  getAISkills: () => get().skills.map(skill => skill.name), 
+  getAIProjects: () => get().projects.map(({ name, association, dates, skillsUsed, roleDescription, link }) => ({ 
+    name, 
+    association, 
+    dates, 
+    skillsUsed: skillsUsed || [], 
+    roleDescription, 
+    link: link || undefined 
+  })),
 }));
 
 
@@ -254,3 +281,4 @@ if (process.env.NODE_ENV === 'development') {
     loadUserProfile("dummy_dev_user_id_for_initial_load_if_needed");
   }
 }
+

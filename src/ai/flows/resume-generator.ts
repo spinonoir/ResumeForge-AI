@@ -1,3 +1,4 @@
+
 // src/ai/flows/resume-generator.ts
 'use server';
 
@@ -12,14 +13,13 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-// Define schemas for employment history, skills, and projects.  These schemas
-// will have to be manually populated in the UI, or pre-loaded via some data
-// import process.
+// Define schemas for employment history, skills, and projects.
 const EmploymentHistorySchema = z.array(z.object({
   title: z.string().describe('Job title'),
   company: z.string().describe('Company name'),
   dates: z.string().describe('Employment dates'),
   description: z.string().describe('Job description'),
+  jobSummary: z.string().optional().describe('A brief summary of the job role and its core responsibilities.'),
 }));
 export type EmploymentHistory = z.infer<typeof EmploymentHistorySchema>;
 
@@ -28,7 +28,10 @@ export type Skills = z.infer<typeof SkillsSchema>;
 
 const ProjectsSchema = z.array(z.object({
   name: z.string().describe('Project name'),
-  description: z.string().describe('Project description'),
+  association: z.string().describe('Project association (e.g., personal, work, school)'),
+  dates: z.string().describe('Project active dates'),
+  skillsUsed: z.array(z.string()).describe('Skills used in the project'),
+  roleDescription: z.string().describe('Detailed description of the user\'s role and contributions in the project'),
   link: z.string().optional().describe('Link to the project'),
 }));
 export type Projects = z.infer<typeof ProjectsSchema>;
@@ -64,7 +67,7 @@ const resumePrompt = ai.definePrompt({
   output: {
     schema: GenerateResumeOutputSchema,
   },
-  prompt: `You are a resume expert.  Create a tailored resume, summary blurb, cover letter and match analysis based on the following job description and user information.
+  prompt: `You are a resume expert. Create a tailored resume, summary blurb, cover letter and match analysis based on the following job description and user information.
 
 Job Description: {{{jobDescription}}}
 
@@ -75,6 +78,7 @@ Employment History:
   Title: {{{title}}}
   Company: {{{company}}}
   Dates: {{{dates}}}
+  {{#if jobSummary}}Summary: {{{jobSummary}}}{{/if}}
   Description: {{{description}}}
 {{/each}}
 
@@ -86,14 +90,14 @@ Skills:
 Projects:
 {{#each projects}}
   Name: {{{name}}}
-  Description: {{{description}}}
-  Link: {{{link}}}
+  Association: {{{association}}}
+  Dates: {{{dates}}}
+  Role & Contributions: {{{roleDescription}}}
+  {{#if skillsUsed.length}}Skills Used: {{#each skillsUsed}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
+  {{#if link}}Link: {{{link}}}{{/if}}
 {{/each}}
 
-
-
-
-Consider all of this information and generate a resume in LaTeX format, a summary blurb, a cover letter, and an analysis of how well the user matches the job description. Focus on the aspects of the user's history, skills, and projects which are most relevant to the job description.  The resume should be concise and well-formatted.  The cover letter should be professional and engaging. The match analysis should be thorough and insightful. The summary blurb should be short and attention grabbing.
+Consider all of this information and generate a resume in LaTeX format, a summary blurb, a cover letter, and an analysis of how well the user matches the job description. Focus on the aspects of the user's history, skills, and projects which are most relevant to the job description. The resume should be concise and well-formatted. The cover letter should be professional and engaging. The match analysis should be thorough and insightful. The summary blurb should be short and attention grabbing.
 
 Ensure the output is well-structured and easy to read.
 `,
@@ -110,3 +114,4 @@ const generateResumeFlow = ai.defineFlow(
     return output!;
   }
 );
+
