@@ -6,6 +6,7 @@ export type EmploymentEntry = {
   company: string;
   dates: string;
   description: string;
+  jobSummary?: string; // Added job summary
 };
 
 export type SkillEntry = {
@@ -37,3 +38,4 @@ export interface SavedApplication {
   matchAnalysis: string;
   createdAt: string; 
 }
+

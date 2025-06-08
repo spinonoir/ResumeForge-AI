@@ -6,7 +6,7 @@ import { useUserProfileStore } from '@/lib/store';
 import type { EmploymentEntry, SkillEntry, ProjectEntry } from '@/types';
 import { EditableList, type EditableListRef } from '@/components/EditableList';
 import { BackgroundBuilder } from '@/components/profile/BackgroundBuilder';
-import { BriefcaseIcon, LightbulbIcon, SparklesIcon, UserCircle2Icon, PlusCircleIcon, Loader2Icon } from 'lucide-react';
+import { BriefcaseIcon, LightbulbIcon, SparklesIcon, UserCircle2Icon, PlusCircleIcon, Loader2Icon, XIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,8 @@ const employmentFields = [
   { name: 'title', label: 'Job Title', type: 'text' as 'text', placeholder: 'e.g., Software Engineer' },
   { name: 'company', label: 'Company', type: 'text' as 'text', placeholder: 'e.g., Tech Solutions Inc.' },
   { name: 'dates', label: 'Dates', type: 'text' as 'text', placeholder: 'e.g., Jan 2020 - Present' },
-  { name: 'description', label: 'Description', type: 'textarea' as 'textarea', placeholder: 'Briefly describe your responsibilities and achievements.' },
+  { name: 'jobSummary', label: 'Job Summary (1-2 sentences)', type: 'textarea' as 'textarea', placeholder: 'Brief overview of your role and core responsibilities.' },
+  { name: 'description', label: 'Detailed Responsibilities & Achievements', type: 'textarea' as 'textarea', placeholder: 'List all key duties, functions, and accomplishments.' },
 ];
 
 const projectFields = [
@@ -48,6 +49,7 @@ export function ProfileTabContent() {
         title: data.jobTitle,
         company: data.company,
         dates: data.employmentDates,
+        jobSummary: data.jobSummary,
         description: data.jobDescription,
       });
       toast({ title: "Parsing Successful", description: "Employment form pre-filled. Please review and save." });
@@ -81,11 +83,18 @@ export function ProfileTabContent() {
           <h4 className="font-semibold text-md">{item.title}</h4>
           <p className="text-sm text-muted-foreground">{item.company} | {item.dates}</p>
         </div>
-        <div className="space-x-1 flex-shrink-0">
-          {/* Icons are handled by EditableList's default renderItem or its internal buttons */}
-        </div>
+        {/* Edit/Remove buttons are handled by EditableList's default rendering or its internal buttons */}
       </div>
-      <p className="text-sm mt-1 whitespace-pre-wrap">{item.description}</p>
+      {item.jobSummary && (
+        <div className="mt-1">
+          <p className="text-xs font-medium text-muted-foreground">Summary:</p>
+          <p className="text-sm whitespace-pre-wrap">{item.jobSummary}</p>
+        </div>
+      )}
+      <div className="mt-1">
+        <p className="text-xs font-medium text-muted-foreground">Details:</p>
+        <p className="text-sm whitespace-pre-wrap">{item.description}</p>
+      </div>
     </div>
   );
 
@@ -96,16 +105,14 @@ export function ProfileTabContent() {
           <h4 className="font-semibold text-md">{item.name}</h4>
           {item.link && <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">{item.link}</a>}
         </div>
-        <div className="space-x-1 flex-shrink-0">
-           {/* Icons are handled by EditableList's default renderItem or its internal buttons */}
-        </div>
+         {/* Edit/Remove buttons are handled by EditableList's default rendering or its internal buttons */}
       </div>
       <p className="text-sm mt-1 whitespace-pre-wrap">{item.description}</p>
     </div>
   );
 
   const employmentCustomAddButton = (
-    <div className="flex items-center gap-1">
+    <div className="ml-auto flex items-center gap-1">
         <Button
             variant="ghost"
             size="icon"
@@ -174,8 +181,8 @@ export function ProfileTabContent() {
               {skills.map(skill => (
                 <span key={skill.id} className="flex items-center bg-accent text-accent-foreground px-3 py-1 rounded-full text-sm">
                   {skill.name}
-                  <Button variant="ghost" size="icon" className="ml-1 h-5 w-5 hover:bg-accent/80" onClick={() => removeSkill(skill.id)}>
-                    <UserCircle2Icon className="h-3 w-3" /> {/* Placeholder, should be XIcon - will be fixed by EditableList logic if skill becomes editable list */}
+                  <Button variant="ghost" size="icon" className="ml-1 h-5 w-5 hover:bg-accent/80 text-accent-foreground/70 hover:text-accent-foreground" onClick={() => removeSkill(skill.id)} aria-label={`Remove skill ${skill.name}`}>
+                    <XIcon className="h-3 w-3" />
                   </Button>
                 </span>
               ))}
@@ -229,3 +236,4 @@ export function ProfileTabContent() {
     </div>
   );
 }
+
