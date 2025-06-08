@@ -49,7 +49,6 @@ const saveProfileToFirestore = async (userId: string, profileData: Partial<Pick<
     dataToSave.skills = profileData.skills.map(s => ({ name: s.name, category: s.category || null, id: s.id }));
   }
   if (profileData.projects !== undefined) {
-    // Ensure skillsUsed is always an array, even if empty, and link is either string or null
     dataToSave.projects = profileData.projects.map(p => ({
       ...p,
       skillsUsed: p.skillsUsed || [],
@@ -90,8 +89,8 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         projects: (data.projects || []).map((p: any) => ({
             ...p,
             id: p.id || Date.now().toString() + Math.random(),
-            skillsUsed: p.skillsUsed || [], // Ensure skillsUsed is an array
-            link: p.link === null ? undefined : p.link, // Ensure link is undefined if null
+            skillsUsed: p.skillsUsed || [], 
+            link: p.link === null ? undefined : p.link, 
         })),
         backgroundInformation: data.backgroundInformation || '',
         isLoadingProfile: false,
@@ -146,15 +145,21 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
   },
 
   addSkill: async (skillData) => {
-    if (!skillData.name.trim()) return;
+    const trimmedName = skillData.name.trim();
+    if (!trimmedName) return;
+    
     const newSkill: SkillEntry = { 
-      id: Date.now().toString(), 
-      name: skillData.name.trim(),
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 15), // More unique ID
+      name: trimmedName,
       category: skillData.category?.trim() || undefined 
     };
+
+    // Check if a skill with the same name (case-insensitive) already exists
     if (get().skills.some(s => s.name.toLowerCase() === newSkill.name.toLowerCase())) {
-        toast({ variant: "default", title: "Skill Exists", description: `Skill "${newSkill.name}" is already in your profile.`});
-        return;
+        // Do not add if exact match (case-insensitive) already exists.
+        // The calling function is responsible for deciding to use the existing skill.
+        // No toast here to allow programmatic additions without user alerts.
+        return; 
     }
     set((state) => ({ skills: [...state.skills, newSkill] }));
     await saveProfileToFirestore(get().userId!, { skills: get().skills });

@@ -6,7 +6,7 @@ import { useUserProfileStore } from '@/lib/store';
 import type { EmploymentEntry, SkillEntry, ProjectEntry } from '@/types';
 import { EditableList, type EditableListRef } from '@/components/EditableList';
 import { BackgroundBuilder } from '@/components/profile/BackgroundBuilder';
-import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon, CheckIcon, FileTextIcon, EditIcon } from 'lucide-react';
+import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon, CheckIcon, FileTextIcon, EditIcon, ClipboardListIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -44,7 +44,7 @@ interface ParsedSkillFromAI {
 export function ProfileTabContent() {
   const { 
     employmentHistory, addEmploymentEntry, updateEmploymentEntry, removeEmploymentEntry,
-    skills, addSkill, removeSkill,
+    skills, addSkill: storeAddSkill, removeSkill,
     projects, addProjectEntry: storeAddProjectEntry, updateProjectEntry: storeUpdateProjectEntry, removeProjectEntry
   } = useUserProfileStore();
 
@@ -105,7 +105,6 @@ export function ProfileTabContent() {
       setPendingProjectAIData(data);
       setProjectAISkillsEditText((data.projectSkillsUsed || []).join(', '));
       toast({ title: "Project Parsing Successful", description: "Review the extracted details below and edit if needed." });
-      // Dialog remains open, showing pendingProjectAIData
     },
     onError: (error) => {
       toast({ variant: "destructive", title: "Project Parsing Failed", description: error.message });
@@ -115,14 +114,12 @@ export function ProfileTabContent() {
 
   const handleProceedWithAIParsedProjectData = () => {
     if (!pendingProjectAIData) return;
-
-    const finalSkillsArray = projectAISkillsEditText.split(',').map(s => s.trim()).filter(s => s);
     
     projectListRef.current?.initiateAddItem({
       name: pendingProjectAIData.projectName,
       association: pendingProjectAIData.projectAssociation,
       dates: pendingProjectAIData.projectDates,
-      skillsUsed: finalSkillsArray,
+      skillsUsed: projectAISkillsEditText.split(',').map(s => s.trim()).filter(s => s), // Pass as array
       roleDescription: pendingProjectAIData.projectRoleDescription,
       link: pendingProjectAIData.projectLink,
     });
@@ -155,7 +152,7 @@ export function ProfileTabContent() {
       toast({ variant: "destructive", title: "No Text Provided", description: "Please paste project text to parse." });
       return;
     }
-    setPendingProjectAIData(null); // Clear previous pending data before new parse
+    setPendingProjectAIData(null); 
     projectParseMutation.mutate({ textBlock: projectTextToParse });
   };
 
@@ -166,44 +163,78 @@ export function ProfileTabContent() {
     }
     let skillsAddedCount = 0;
     for (const skill of suggestedSkills) {
-      await addSkill({ name: skill.name, category: skill.category });
-      skillsAddedCount++; 
+      // Check global skills before adding
+      const existingGlobalSkill = useUserProfileStore.getState().skills.find(s => s.name.toLowerCase() === skill.name.toLowerCase());
+      if (!existingGlobalSkill) {
+        await storeAddSkill({ name: skill.name, category: skill.category });
+        skillsAddedCount++; 
+      } else {
+        // Optionally update category of existing skill if AI suggests a different one
+        // For now, just skip adding if name matches.
+      }
     }
     if (skillsAddedCount > 0) {
-        toast({ title: "Skills Processed", description: `${skillsAddedCount} skills/categories processed for your profile.` });
+        toast({ title: "Skills Processed", description: `${skillsAddedCount} new skills added to your profile.` });
+    } else {
+        toast({ title: "Skills Processed", description: "No new skills were added (existing skills were not modified by this action)." });
     }
     setSuggestedSkills([]);
     setSkillsTextToParse('');
     setIsAISkillsDialogOpen(false);
   };
 
-  const processAndAddProjectSkillsToGlobalStore = async (skillsUsedStringOrArray: string | string[]): Promise<string[]> => {
-    const skillNames = Array.isArray(skillsUsedStringOrArray)
+
+  const findOrAddSkillAndGetCanonicalName = async (skillNameFromProject: string): Promise<string> => {
+    const { skills: globalSkills, addSkill } = useUserProfileStore.getState();
+    const trimmedProjectSkillName = skillNameFromProject.trim();
+    if (!trimmedProjectSkillName) return ""; 
+    const lcTrimmedProjectSkillName = trimmedProjectSkillName.toLowerCase();
+  
+    const exactMatch = globalSkills.find(gs => gs.name.toLowerCase() === lcTrimmedProjectSkillName);
+    if (exactMatch) {
+      return exactMatch.name; 
+    }
+  
+    const generalParentSkill = globalSkills.find(gs => {
+      const lcGSName = gs.name.toLowerCase();
+      return lcTrimmedProjectSkillName.startsWith(lcGSName) && lcTrimmedProjectSkillName.length > lcGSName.length && (lcTrimmedProjectSkillName.charAt(lcGSName.length) === ' ' || lcTrimmedProjectSkillName.charAt(lcGSName.length) === '.' || !isNaN(parseInt(lcTrimmedProjectSkillName.charAt(lcGSName.length))) );
+    });
+    if (generalParentSkill) {
+      return generalParentSkill.name; 
+    }
+    
+    await addSkill({ name: trimmedProjectSkillName, category: "Uncategorized" });
+    // Ensure we return the name as it was intended to be added (original casing)
+    // The addSkill function in the store is responsible for not creating true duplicates.
+    return trimmedProjectSkillName; 
+  };
+  
+  const processProjectSkillsForGlobalStore = async (skillsUsedStringOrArray: string | string[]): Promise<string[]> => {
+    const skillNamesInput = Array.isArray(skillsUsedStringOrArray)
       ? skillsUsedStringOrArray.map(s => s.trim()).filter(s => s)
       : skillsUsedStringOrArray.split(',').map(s => s.trim()).filter(s => s);
-
-    const currentGlobalSkills = useUserProfileStore.getState().skills;
-    
-    for (const name of skillNames) {
-      const existingGlobalSkill = currentGlobalSkills.find(gs => gs.name.toLowerCase() === name.toLowerCase());
-      if (!existingGlobalSkill) {
-        await addSkill({ name: name, category: "Uncategorized" });
+  
+    const canonicalSkillNamesForProject: string[] = [];
+    for (const name of skillNamesInput) {
+      if (name) { 
+          const canonicalName = await findOrAddSkillAndGetCanonicalName(name);
+          if (canonicalName) canonicalSkillNamesForProject.push(canonicalName);
       }
     }
-    return skillNames; 
+    return [...new Set(canonicalSkillNamesForProject)]; 
   };
 
   const handleAddProject = async (projectItem: Omit<ProjectEntry, 'id'>) => {
-    const skillsArray = await processAndAddProjectSkillsToGlobalStore((projectItem as any).skillsUsed); // skillsUsed here is string from form
-    await storeAddProjectEntry({ ...projectItem, skillsUsed: skillsArray });
+    const skillsForProject = await processProjectSkillsForGlobalStore((projectItem as any).skillsUsed);
+    await storeAddProjectEntry({ ...projectItem, skillsUsed: skillsForProject });
   };
-
+  
   const handleUpdateProject = async (id: string, projectItem: Partial<Omit<ProjectEntry, 'id'>>) => {
-    let skillsArray = projectItem.skillsUsed || []; // Could be string or array depending on source
-    if (projectItem.skillsUsed) { // skillsUsed is string from form
-        skillsArray = await processAndAddProjectSkillsToGlobalStore(projectItem.skillsUsed as string | string[]);
+    let skillsForProject = projectItem.skillsUsed || []; 
+    if (projectItem.skillsUsed && (typeof projectItem.skillsUsed === 'string' || Array.isArray(projectItem.skillsUsed))) { 
+        skillsForProject = await processProjectSkillsForGlobalStore(projectItem.skillsUsed as string | string[]);
     }
-    await storeUpdateProjectEntry(id, { ...projectItem, skillsUsed: skillsArray as string[]});
+    await storeUpdateProjectEntry(id, { ...projectItem, skillsUsed: skillsForProject as string[] });
   };
   
   const renderEmploymentItem = (item: EmploymentEntry) => (
@@ -384,7 +415,7 @@ export function ProfileTabContent() {
       <Dialog open={isAIParsingDialogOpen} onOpenChange={setIsAIParsingDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle className="font-headline text-xl">Parse Employment Details from Text</DialogTitle>
+            <DialogTitle className="font-headline text-xl flex items-center"><ClipboardListIcon className="mr-2 h-5 w-5"/>Parse Employment Details</DialogTitle>
             <DialogDescription>Paste a block of text from your resume or job history, and we'll try to fill in the fields for you.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -420,7 +451,7 @@ export function ProfileTabContent() {
       }}>
         <DialogContent className="sm:max-w-[600px] md:max-w-[700px]">
           <DialogHeader>
-            <DialogTitle className="font-headline text-xl">Import & Categorize Skills with AI</DialogTitle>
+            <DialogTitle className="font-headline text-xl flex items-center"><BrainIcon className="mr-2 h-5 w-5"/>Import & Categorize Skills</DialogTitle>
             <DialogDescription>Paste a list or block of text containing your skills. The AI will attempt to extract, clean, and categorize them.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -474,7 +505,7 @@ export function ProfileTabContent() {
       {/* Project AI Parsing Dialog */}
       <Dialog open={isAIProjectParsingDialogOpen} onOpenChange={(isOpen) => {
         setIsAIProjectParsingDialogOpen(isOpen);
-        if (!isOpen) { // Reset states when dialog is closed externally
+        if (!isOpen) { 
             setProjectTextToParse('');
             setPendingProjectAIData(null);
             setProjectAISkillsEditText('');
@@ -482,10 +513,8 @@ export function ProfileTabContent() {
       }}>
         <DialogContent className="sm:max-w-[600px] md:max-w-[700px]">
           <DialogHeader>
-            <DialogTitle className="font-headline text-xl">
-              <div className="flex items-center">
-                <FileTextIcon className="mr-2 h-5 w-5" /> Parse Project Details from Text
-              </div>
+            <DialogTitle className="font-headline text-xl flex items-center">
+                <FileTextIcon className="mr-2 h-5 w-5" /> Parse Project Details
             </DialogTitle>
             {!pendingProjectAIData ? (
               <DialogDescription>Paste a block of text describing your project. The AI will attempt to extract relevant details.</DialogDescription>
@@ -550,7 +579,12 @@ export function ProfileTabContent() {
           <DialogFooter className="gap-2 sm:gap-0">
             {!pendingProjectAIData ? (
               <>
-                <Button type="button" variant="outline" onClick={() => setIsAIProjectParsingDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => {
+                    setIsAIProjectParsingDialogOpen(false);
+                    setProjectTextToParse('');
+                    setPendingProjectAIData(null);
+                    setProjectAISkillsEditText('');
+                }}>
                   Cancel
                 </Button>
                 <Button onClick={handleParseProjectText} disabled={projectParseMutation.isPending || !projectTextToParse.trim()}>
@@ -563,7 +597,6 @@ export function ProfileTabContent() {
                 <Button type="button" variant="outline" onClick={() => {
                     setPendingProjectAIData(null);
                     setProjectAISkillsEditText(''); 
-                    // projectTextToParse remains so user doesn't have to re-paste if they go back
                 }}>
                   Back to Edit Text
                 </Button>
@@ -579,6 +612,3 @@ export function ProfileTabContent() {
     </div>
   );
 }
-
-
-    
