@@ -72,8 +72,11 @@ const GenerateResumeInputSchema = z.object({
   backgroundInformation: z.string().describe('Background information about the user.'),
   educationHistory: z.array(EducationEntrySchema).optional().describe('The user\'s education history.'),
   employmentHistory: EmploymentHistorySchema.describe('The user\'s employment history.'),
-  skills: SkillsSchema.describe('The user\'s skills.'),
+  skills: SkillsSchema.describe('The user\'s skills. This list should be used for ATS optimization by including ALL skills from this array somewhere in the LaTeX, potentially hidden.'),
   projects: ProjectsSchema.describe('The user\'s projects.'),
+  resumeTemplate: z.enum(['regular', 'compact', 'ultraCompact']).default('regular').describe('The LaTeX template style for the resume. "regular" is standard, "compact" uses tighter spacing, "ultraCompact" is very space-efficient.'),
+  accentColor: z.string().optional().describe('User-defined accent color for the resume. Can be a hex code (e.g., "FF5733" without #) or a LaTeX named color (e.g., "RoyalBlue"). If hex, use with \\definecolor{AccentColor}{HTML}{HEX_CODE}. If named, try to use directly or define. If not provided, use black or a default dark color.'),
+  pageLimit: z.number().min(1).max(5).default(2).describe('The desired maximum number of pages for the resume. Attempt to fit content within this limit, especially for compact templates.'),
 });
 export type GenerateResumeInput = z.infer<typeof GenerateResumeInputSchema>;
 
@@ -102,14 +105,14 @@ const resumePrompt = ai.definePrompt({
   output: {
     schema: GenerateResumeOutputSchema,
   },
-  prompt: `You are a resume expert. Based on the provided job description and user information, create the following outputs:
-1. A resume in LaTeX format.
+  prompt: `You are a resume expert and LaTeX specialist. Based on the provided job description, user information, and customization options, create the following outputs:
+1. A resume in LaTeX format, tailored to the '{{{resumeTemplate}}}' style, using '{{{accentColor}}}' as the accent color, and aiming for a '{{{pageLimit}}}' page limit.
 2. A resume in Markdown format.
 3. A summary blurb.
 4. A cover letter.
 5. An analysis of how well the user matches the job description.
-6. Extract the job title from the job description. If not explicitly found, infer it.
-7. Extract the company name from the job description. If not explicitly found, infer it.
+6. Extract the job title from the job description.
+7. Extract the company name from the job description.
 
 Job Description: {{{jobDescription}}}
 
@@ -153,7 +156,7 @@ Employment History:
   {{#if skillsDemonstrated.length}}Skills Demonstrated: {{#each skillsDemonstrated}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
 {{/each}}
 
-Skills:
+All User Skills (for ATS optimization):
 {{#each skills}}
   - {{{this}}}
 {{/each}}
@@ -168,6 +171,68 @@ Projects:
   {{#if link}}Link: {{{link}}}{{/if}}
 {{/each}}
 
+---
+LaTeX Resume Generation Instructions:
+Template Style: '{{{resumeTemplate}}}'
+Accent Color: '{{{accentColor}}}' (If hex, it will be just the hex digits. If named, it's the color name. If empty, use black.)
+Page Limit: '{{{pageLimit}}}' pages.
+
+General LaTeX Setup:
+- Use a standard document class (e.g., article).
+- Include necessary packages: 'geometry' (for margins, aim for ~0.75in or adjust for compactness), 'xcolor' (for colors), 'enumitem' (for lists), 'titlesec' (for section styling), 'hyperref' (for clickable links).
+- Define AccentColor:
+  {{#if accentColor}}
+    \\definecolor{AccentColor}{HTML}{{{accentColor}}} % If it's a hex code passed without #
+    % If '{{{accentColor}}}' is a named color like 'Blue', the above will fail.
+    % So, if '{{{accentColor}}}' is not 6 hex characters, assume it's a named color.
+    % For named colors, you might need to check if it's a base LaTeX color or needs 'dvipsnames' etc.
+    % A robust way: If accentColor is NOT a 6-char HEX string, then use: \\colorlet{AccentColor}{{{accentColor}}} if it's a known name,
+    % otherwise, default to black. For this exercise, assume if it's not HEX, it's a valid LaTeX color name.
+    % If '{{{accentColor}}}' is a name like 'RoyalBlue', try using it directly.
+  {{else}}
+    \\definecolor{AccentColor}{RGB}{0,0,0} % Default to black
+  {{/if}}
+  If '{{{accentColor}}}' is a named color, use it like \textcolor{{{{accentColor}}}}{text} or for defining section color.
+- Make email, LinkedIn, GitHub, and other URLs clickable using hyperref.
+- Name/Contact Info: Display prominently, possibly using AccentColor for the name.
+- Sections: Education, Employment History, Projects, Skills (selected/highlighted, not all).
+- ATS Optimization: CRITICAL - Include ALL skills from the "All User Skills" list as hidden text. For example, at the very end of the document:
+  \\newpage % Ensure it's on its own, possibly not rendered if content fits before
+  \\mbox{} % Empty box to ensure page break if needed
+  \\vfill % Push to bottom
+  \\texttt{\\textcolor{white}{\\tiny ATS SKILLS: {{#each skills}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}}}
+  Ensure this hidden text does not disrupt the visual layout or add an extra visible page if the main content fits the page limit.
+
+Template Specifics:
+
+{{#eq resumeTemplate "regular"}}
+  % Regular Template: Standard professional layout.
+  - Use standard font sizes.
+  - Clear separation between sections.
+  - Section titles: Prominent, possibly using AccentColor. E.g., \\section*{\\color{AccentColor}Section Title}.
+  - Bullet points for descriptions. Use enumitem for list customization if needed.
+{{/eq}}
+
+{{#eq resumeTemplate "compact"}}
+  % Compact Template: Tighter spacing, aims for fewer pages.
+  - Slightly smaller base font size if necessary (e.g., 10pt or 11pt).
+  - Reduced vertical spacing between items, sections (e.g., \\vspace{-2mm}).
+  - Section titles: Still clear, perhaps less space above/below. Consider \\titlespacing.
+  - Descriptions: Concise bullet points.
+{{/eq}}
+
+{{#eq resumeTemplate "ultraCompact"}}
+  % Ultra-Compact Template: Very space-efficient, for fitting a lot of info or very short resumes.
+  - Smallest reasonable font size (e.g., 9pt or 10pt).
+  - Minimal vertical spacing. Use negative vspace if needed.
+  - Section titles: Could be run-in with text or very minimal.
+  - Consider using minipage environments or multicol package for certain sections to save space if appropriate.
+  - Focus on extreme brevity in descriptions.
+{{/eq}}
+
+Ensure the LaTeX output is a single, complete, compilable document.
+---
+
 Consider all of this information. Focus on the aspects of the user's history, skills, and projects which are most relevant to the job description.
 Both resume formats (LaTeX and Markdown) should be concise and well-formatted.
 The cover letter should be professional and engaging.
@@ -175,7 +240,7 @@ The match analysis should be thorough and insightful.
 The summary blurb should be short and attention-grabbing.
 If the job title or company name cannot be clearly identified from the job description, return an empty string for 'jobTitleFromJD' and/or 'companyNameFromJD'.
 
-Ensure the output is well-structured and easy to read.
+Output must be in the specified JSON format.
 `,
 });
 
@@ -186,8 +251,18 @@ const generateResumeFlow = ai.defineFlow(
     outputSchema: GenerateResumeOutputSchema,
   },
   async input => {
-    const {output} = await resumePrompt(input);
+    // Pre-process accentColor if it's hex
+    let processedAccentColor = input.accentColor;
+    if (processedAccentColor && processedAccentColor.startsWith('#')) {
+      processedAccentColor = processedAccentColor.substring(1);
+    }
+
+    const flowInput = {
+      ...input,
+      accentColor: processedAccentColor,
+    };
+
+    const {output} = await resumePrompt(flowInput);
     return output!;
   }
 );
-
