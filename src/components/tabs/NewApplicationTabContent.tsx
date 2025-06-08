@@ -36,7 +36,7 @@ export function NewApplicationTabContent() {
 
   // New state for customization options
   const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplateType>("regular");
-  const [accentColorInput, setAccentColorInput] = useState('');
+  const [accentColorInput, setAccentColorInput] = useState('#64B5F6'); // Default to soft blue
   const [pageLimitInput, setPageLimitInput] = useState<number>(2);
 
 
@@ -77,10 +77,7 @@ export function NewApplicationTabContent() {
         return;
     }
 
-    let finalAccentColor = accentColorInput.trim();
-    if (finalAccentColor.startsWith('#')) {
-      finalAccentColor = finalAccentColor.substring(1);
-    }
+    const finalAccentColor = accentColorInput.trim(); // Pass with # if hex, AI flow handles it
 
     resumeMutation.mutate({
       jobDescription,
@@ -91,7 +88,7 @@ export function NewApplicationTabContent() {
       projects: getAIProjects(),
       backgroundInformation,
       resumeTemplate: selectedTemplate,
-      accentColor: finalAccentColor || undefined, // Send undefined if empty
+      accentColor: finalAccentColor || undefined, 
       pageLimit: pageLimitInput,
     });
   };
@@ -127,7 +124,7 @@ export function NewApplicationTabContent() {
       generatedSummary: generatedData.summary,
       matchAnalysis: generatedData.matchAnalysis,
       resumeTemplateUsed: selectedTemplate,
-      accentColorUsed: accentColorInput,
+      accentColorUsed: accentColorInput.trim(),
       pageLimitUsed: pageLimitInput,
     });
   };
@@ -192,15 +189,31 @@ export function NewApplicationTabContent() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="accent-color">Accent Color (Hex or Name)</Label>
-              <Input
-                id="accent-color"
-                placeholder="e.g., #007ACC or Blue"
-                value={accentColorInput}
-                onChange={(e) => setAccentColorInput(e.target.value)}
-              />
+            
+            <div className="md:col-span-1">
+              <Label htmlFor="accent-color-picker">Accent Color</Label>
+              <div className="flex items-center gap-2 mt-1">
+                 <Input
+                    id="accent-color-picker"
+                    type="color"
+                    value={accentColorInput.startsWith('#') ? accentColorInput : '#64B5F6'} // Ensure valid hex for picker
+                    onChange={(e) => setAccentColorInput(e.target.value)}
+                    className="h-10 w-12 p-1 rounded-md border"
+                  />
+                  <Input
+                    id="accent-color-text"
+                    type="text"
+                    placeholder="Or type name (e.g., Blue)"
+                    value={accentColorInput}
+                    onChange={(e) => setAccentColorInput(e.target.value)}
+                    className="flex-grow h-10"
+                  />
+              </div>
+               <p className="text-xs text-muted-foreground mt-1">
+                Default: Soft Blue ({`#64B5F6`}).
+              </p>
             </div>
+
             <div>
               <Label htmlFor="page-limit">Page Limit</Label>
               <Input
@@ -210,6 +223,7 @@ export function NewApplicationTabContent() {
                 onChange={(e) => setPageLimitInput(Math.max(1, parseInt(e.target.value, 10) || 1))}
                 min="1"
                 max="5"
+                className="mt-1"
               />
             </div>
           </div>

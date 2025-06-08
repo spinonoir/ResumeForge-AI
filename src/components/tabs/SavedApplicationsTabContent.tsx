@@ -48,7 +48,8 @@ export function SavedApplicationsTabContent() {
   );
 
   const renderCustomizationInfo = (app: SavedApplication) => {
-    if (!app.resumeTemplateUsed && !app.accentColorUsed && !app.pageLimitUsed) {
+    const hasCustomization = app.resumeTemplateUsed || app.accentColorUsed || app.pageLimitUsed !== undefined;
+    if (!hasCustomization) {
       return null;
     }
     return (
@@ -57,9 +58,18 @@ export function SavedApplicationsTabContent() {
           <PaletteIcon className="mr-2 h-4 w-4 text-muted-foreground" />
           Resume Customization Used:
         </h5>
-        <ul className="list-disc list-inside pl-2 text-xs space-y-1 text-muted-foreground">
+        <ul className="list-disc list-inside pl-2 text-xs space-y-1">
           {app.resumeTemplateUsed && <li>Template: <span className="font-medium text-foreground">{app.resumeTemplateUsed}</span></li>}
-          {app.accentColorUsed && <li>Accent Color: <span className="font-medium text-foreground">{app.accentColorUsed}</span></li>}
+          {app.accentColorUsed && (
+            <li className="flex items-center">
+              Accent Color:
+              <span
+                className="inline-block w-4 h-4 rounded-sm ml-1.5 mr-1 border"
+                style={{ backgroundColor: app.accentColorUsed }}
+              />
+              <span className="font-medium text-foreground">{app.accentColorUsed}</span>
+            </li>
+          )}
           {app.pageLimitUsed !== undefined && <li>Page Limit: <span className="font-medium text-foreground">{app.pageLimitUsed}</span></li>}
         </ul>
       </div>
