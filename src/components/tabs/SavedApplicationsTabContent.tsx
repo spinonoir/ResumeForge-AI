@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
-import { ArchiveIcon, EyeIcon, Trash2Icon, FileTextIcon, MailIcon, BarChart3Icon, CheckCircleIcon, CodeIcon, ClipboardListIcon } from 'lucide-react';
+import { ArchiveIcon, EyeIcon, Trash2Icon, FileTextIcon, MailIcon, BarChart3Icon, CheckCircleIcon, CodeIcon, ClipboardListIcon as JobDescIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { CopyButton } from '@/components/CopyButton'; // Import the new component
 
 export function SavedApplicationsTabContent() {
   const { savedApplications, removeSavedApplication } = useApplicationsStore();
@@ -33,10 +34,13 @@ export function SavedApplicationsTabContent() {
   
   const renderDetailSection = (title: string, content: string, icon: React.ReactNode) => (
     <div className="mb-4">
-      <h4 className="flex items-center text-md font-semibold mb-1 font-headline">
-        {icon}
-        {title}
-      </h4>
+      <div className="flex items-center justify-between mb-1">
+        <h4 className="flex items-center text-md font-semibold font-headline">
+          {icon}
+          {title}
+        </h4>
+        <CopyButton textToCopy={content || ""} />
+      </div>
       <ScrollArea className="h-40 w-full rounded-md border p-2 bg-secondary/20">
         <pre className="text-xs whitespace-pre-wrap break-all font-code">{content || "Not available"}</pre>
       </ScrollArea>
@@ -85,10 +89,10 @@ export function SavedApplicationsTabContent() {
                          {selectedApp && (
                             <ScrollArea className="flex-grow pr-6 -mr-6"> 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                                  {renderDetailSection("Job Description", selectedApp.jobDescription, <ClipboardListIcon className="mr-2 h-4 w-4 text-gray-500" />)}
+                                  {renderDetailSection("Job Description", selectedApp.jobDescription, <JobDescIcon className="mr-2 h-4 w-4 text-gray-500" />)}
                                   {renderDetailSection("Summary", selectedApp.generatedSummary, <CheckCircleIcon className="mr-2 h-4 w-4 text-green-500" />)}
                                   {renderDetailSection("Match Analysis", selectedApp.matchAnalysis, <BarChart3Icon className="mr-2 h-4 w-4 text-blue-500" />)}
-                                  {renderDetailSection("LaTeX Resume", selectedApp.generatedResumeLatex, <FileTextIcon className="mr-2 h-4 w-4 text-purple-500" />)}
+                                  {/* {renderDetailSection("LaTeX Resume", selectedApp.generatedResumeLatex, <FileTextIcon className="mr-2 h-4 w-4 text-purple-500" />)} */}
                                   {renderDetailSection("Markdown Resume", selectedApp.generatedResumeMarkdown, <CodeIcon className="mr-2 h-4 w-4 text-teal-500" />)}
                                   {renderDetailSection("Cover Letter", selectedApp.generatedCoverLetter, <MailIcon className="mr-2 h-4 w-4 text-orange-500" />)}
                                 </div>
@@ -111,4 +115,3 @@ export function SavedApplicationsTabContent() {
     </div>
   );
 }
-
