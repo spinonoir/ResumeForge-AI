@@ -163,14 +163,10 @@ export function ProfileTabContent() {
     }
     let skillsAddedCount = 0;
     for (const skill of suggestedSkills) {
-      // Check global skills before adding
       const existingGlobalSkill = useUserProfileStore.getState().skills.find(s => s.name.toLowerCase() === skill.name.toLowerCase());
       if (!existingGlobalSkill) {
         await storeAddSkill({ name: skill.name, category: skill.category });
         skillsAddedCount++; 
-      } else {
-        // Optionally update category of existing skill if AI suggests a different one
-        // For now, just skip adding if name matches.
       }
     }
     if (skillsAddedCount > 0) {
@@ -185,7 +181,7 @@ export function ProfileTabContent() {
 
 
   const findOrAddSkillAndGetCanonicalName = async (skillNameFromProject: string): Promise<string> => {
-    const { skills: globalSkills, addSkill } = useUserProfileStore.getState();
+    const { skills: globalSkills, addSkill: globalAddSkill } = useUserProfileStore.getState();
     const trimmedProjectSkillName = skillNameFromProject.trim();
     if (!trimmedProjectSkillName) return ""; 
     const lcTrimmedProjectSkillName = trimmedProjectSkillName.toLowerCase();
@@ -197,15 +193,17 @@ export function ProfileTabContent() {
   
     const generalParentSkill = globalSkills.find(gs => {
       const lcGSName = gs.name.toLowerCase();
-      return lcTrimmedProjectSkillName.startsWith(lcGSName) && lcTrimmedProjectSkillName.length > lcGSName.length && (lcTrimmedProjectSkillName.charAt(lcGSName.length) === ' ' || lcTrimmedProjectSkillName.charAt(lcGSName.length) === '.' || !isNaN(parseInt(lcTrimmedProjectSkillName.charAt(lcGSName.length))) );
+      return lcTrimmedProjectSkillName.startsWith(lcGSName) && 
+             lcTrimmedProjectSkillName.length > lcGSName.length && 
+             (lcTrimmedProjectSkillName.charAt(lcGSName.length) === ' ' || 
+              lcTrimmedProjectSkillName.charAt(lcGSName.length) === '.' || 
+              !isNaN(parseInt(lcTrimmedProjectSkillName.charAt(lcGSName.length))) );
     });
     if (generalParentSkill) {
       return generalParentSkill.name; 
     }
     
-    await addSkill({ name: trimmedProjectSkillName, category: "Uncategorized" });
-    // Ensure we return the name as it was intended to be added (original casing)
-    // The addSkill function in the store is responsible for not creating true duplicates.
+    await globalAddSkill({ name: trimmedProjectSkillName, category: "Uncategorized" });
     return trimmedProjectSkillName; 
   };
   
@@ -218,10 +216,12 @@ export function ProfileTabContent() {
     for (const name of skillNamesInput) {
       if (name) { 
           const canonicalName = await findOrAddSkillAndGetCanonicalName(name);
-          if (canonicalName) canonicalSkillNamesForProject.push(canonicalName);
+          if (canonicalName && !canonicalSkillNamesForProject.some(cn => cn.toLowerCase() === canonicalName.toLowerCase())) {
+            canonicalSkillNamesForProject.push(canonicalName);
+          }
       }
     }
-    return [...new Set(canonicalSkillNamesForProject)]; 
+    return canonicalSkillNamesForProject;
   };
 
   const handleAddProject = async (projectItem: Omit<ProjectEntry, 'id'>) => {
@@ -255,28 +255,42 @@ export function ProfileTabContent() {
   );
 
   const renderProjectItem = (item: ProjectEntry) => (
-     <div>
+     <div className="space-y-1.5">
       <h4 className="font-semibold text-md">{item.name}</h4>
       <p className="text-sm text-muted-foreground">
         {item.association} | {item.dates}
       </p>
+      <div>
+        <p className="text-sm font-medium text-muted-foreground mb-1">Role & Contributions:</p>
+        <p className="text-sm whitespace-pre-wrap">{item.roleDescription}</p>
+      </div>
       {item.skillsUsed && item.skillsUsed.length > 0 && (
-        <p className="text-sm mt-1">
-          <span className="font-medium">Skills Used:</span> {item.skillsUsed.join(', ')}
-        </p>
+        <div>
+          <p className="text-sm font-medium text-muted-foreground mb-1">Skills Used:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {item.skillsUsed.map(skillName => (
+              <span 
+                key={skillName} 
+                className="bg-accent text-accent-foreground px-2.5 py-1 rounded-full text-xs font-medium"
+              >
+                {skillName}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
-      <p className="text-sm mt-1 whitespace-pre-wrap">
-        <span className="font-medium">Role & Contributions:</span> {item.roleDescription}
-      </p>
       {item.link && (
-        <a 
-            href={item.link.startsWith('http') ? item.link : `https://${item.link}`} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="text-sm text-primary hover:underline break-all block mt-1"
-        >
-            Project Link
-        </a>
+        <div>
+          <p className="text-sm font-medium text-muted-foreground mb-0.5">Link:</p>
+          <a 
+              href={item.link.startsWith('http') ? item.link : `https://${item.link}`} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-sm text-primary hover:underline break-all"
+          >
+              {item.link}
+          </a>
+        </div>
       )}
     </div>
   );
@@ -612,3 +626,4 @@ export function ProfileTabContent() {
     </div>
   );
 }
+
