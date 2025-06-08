@@ -45,3 +45,28 @@ export interface SavedApplication {
   createdAt: string; 
 }
 
+export interface SocialMediaLink {
+  id: string;
+  platform: string;
+  url: string;
+}
+
+export interface PersonalDetails {
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  githubUrl?: string;
+  linkedinUrl?: string;
+  socialMediaLinks?: SocialMediaLink[];
+}
+
+export interface EducationEntry {
+  id: string;
+  institution: string;
+  degree: string;
+  fieldOfStudy?: string;
+  dates: string; // e.g., "Aug 2018 - May 2022" or "Graduated May 2022"
+  description?: string; // e.g., GPA, honors, relevant coursework, activities
+}
+

@@ -1,13 +1,13 @@
 
 "use client";
 
-import React, { useState, useRef, useMemo } from 'react';
-import { useUserProfileStore } from '@/lib/store';
-import type { EmploymentEntry, SkillEntry, ProjectEntry } from '@/types';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { useUserProfileStore, type UserProfileState } from '@/lib/store';
+import type { EmploymentEntry, SkillEntry, ProjectEntry, PersonalDetails, EducationEntry, SocialMediaLink } from '@/types';
 import { EditableList, type EditableListRef } from '@/components/EditableList';
 import { BackgroundBuilder } from '@/components/profile/BackgroundBuilder';
-import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon, CheckIcon, FileTextIcon, EditIcon, ClipboardListIcon, FilterIcon, ChevronDownIcon, ChevronUpIcon, PackageSearchIcon } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { UserIcon, GraduationCapIcon, BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon, CheckIcon, FileTextIcon, EditIcon, ClipboardListIcon, FilterIcon, ChevronDownIcon, ChevronUpIcon, PackageSearchIcon, SaveIcon, LinkIcon } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription } from "@/components/ui/dialog";
@@ -18,6 +18,7 @@ import { parseAndCategorizeSkills, type ParseSkillsInput, type ParseSkillsOutput
 import { parseProjectText, type ParseProjectTextInput, type ParseProjectTextOutput } from '@/ai/flows/project-text-parser-flow';
 import { toast } from '@/hooks/use-toast';
 import { Label } from '../ui/label';
+import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
@@ -39,20 +40,75 @@ const projectFields = [
   { name: 'link', label: 'Link (Optional)', type: 'text' as 'text', placeholder: 'e.g., https://github.com/yourproject' },
 ];
 
+const educationFields = [
+  { name: 'institution', label: 'Institution Name', type: 'text' as 'text', placeholder: 'e.g., University of Example' },
+  { name: 'degree', label: 'Degree', type: 'text' as 'text', placeholder: 'e.g., Bachelor of Science' },
+  { name: 'fieldOfStudy', label: 'Field of Study (Optional)', type: 'text' as 'text', placeholder: 'e.g., Computer Science' },
+  { name: 'dates', label: 'Dates', type: 'text' as 'text', placeholder: 'e.g., Aug 2018 - May 2022' },
+  { name: 'description', label: 'Description/Achievements (Optional)', type: 'textarea' as 'textarea', placeholder: 'e.g., GPA, honors, relevant coursework' },
+];
+
+const socialMediaFields = [
+  { name: 'platform', label: 'Platform', type: 'text' as 'text', placeholder: 'e.g., Portfolio, Blog' },
+  { name: 'url', label: 'URL', type: 'text' as 'text', placeholder: 'e.g., https://myportfolio.com' },
+];
+
+
 interface ParsedSkillFromAI {
   name: string;
   category: string;
 }
 
 export function ProfileTabContent() {
+  const store = useUserProfileStore();
+
   const { 
+    personalDetails: storePersonalDetails, setPersonalDetails: storeSetPersonalDetails,
     employmentHistory, addEmploymentEntry: storeAddEmploymentEntry, updateEmploymentEntry: storeUpdateEmploymentEntry, removeEmploymentEntry,
     skills, addSkill: storeAddSkill, removeSkill,
-    projects, addProjectEntry: storeAddProjectEntry, updateProjectEntry: storeUpdateProjectEntry, removeProjectEntry
-  } = useUserProfileStore();
+    projects, addProjectEntry: storeAddProjectEntry, updateProjectEntry: storeUpdateProjectEntry, removeProjectEntry,
+    educationHistory, addEducationEntry: storeAddEducationEntry, updateEducationEntry: storeUpdateEducationEntry, removeEducationEntry: storeRemoveEducationEntry,
+  } = store;
+
+  const [localPersonalDetails, setLocalPersonalDetails] = useState<PersonalDetails>(storePersonalDetails);
+
+  useEffect(() => {
+    setLocalPersonalDetails(storePersonalDetails);
+  }, [storePersonalDetails]);
+
+  const handlePersonalDetailsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalPersonalDetails(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSavePersonalDetails = async () => {
+    await storeSetPersonalDetails(localPersonalDetails);
+    toast({ title: "Personal Details Updated", description: "Your information has been saved." });
+  };
+  
+  const handleAddSocialMediaLink = (item: Omit<SocialMediaLink, 'id'>) => {
+    const newLink = { ...item, id: Date.now().toString() };
+    const updatedSocialMedia = [...(localPersonalDetails.socialMediaLinks || []), newLink];
+    setLocalPersonalDetails(prev => ({...prev, socialMediaLinks: updatedSocialMedia }));
+    // Note: We'll save all personal details together with the main button
+  };
+
+  const handleUpdateSocialMediaLink = (id: string, item: Partial<Omit<SocialMediaLink, 'id'>>) => {
+    const updatedSocialMedia = (localPersonalDetails.socialMediaLinks || []).map(link => 
+      link.id === id ? { ...link, ...item } : link
+    );
+    setLocalPersonalDetails(prev => ({...prev, socialMediaLinks: updatedSocialMedia }));
+  };
+
+  const handleRemoveSocialMediaLink = (id: string) => {
+    const updatedSocialMedia = (localPersonalDetails.socialMediaLinks || []).filter(link => link.id !== id);
+    setLocalPersonalDetails(prev => ({...prev, socialMediaLinks: updatedSocialMedia }));
+  };
+
 
   const employmentListRef = useRef<EditableListRef<EmploymentEntry>>(null);
   const projectListRef = useRef<EditableListRef<ProjectEntry>>(null);
+  const educationListRef = useRef<EditableListRef<EducationEntry>>(null);
+
 
   const [isAIEmploymentParsingDialogOpen, setIsAIEmploymentParsingDialogOpen] = useState(false);
   const [employmentTextToParse, setEmploymentTextToParse] = useState('');
@@ -75,6 +131,7 @@ export function ProfileTabContent() {
   const SKILLS_COLLAPSED_LIMIT = 8;
   
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
+  const [expandedEducationId, setExpandedEducationId] = useState<string | null>(null);
 
 
   const employmentParseMutation = useMutation<ParseEmploymentTextOutput, Error, ParseEmploymentTextInput>({
@@ -238,7 +295,7 @@ export function ProfileTabContent() {
   const processItemSkillsForGlobalStore = async (skillsStringOrArray: string | string[]): Promise<string[]> => {
     const skillNamesInput = Array.isArray(skillsStringOrArray)
       ? skillsStringOrArray.map(s => s.trim()).filter(s => s)
-      : skillsStringOrArray.split(',').map(s => s.trim()).filter(s => s);
+      : typeof skillsStringOrArray === 'string' ? skillsStringOrArray.split(',').map(s => s.trim()).filter(s => s) : [];
   
     const canonicalSkillNamesForItem: string[] = [];
     for (const name of skillNamesInput) {
@@ -253,7 +310,7 @@ export function ProfileTabContent() {
   };
 
   const handleAddEmployment = async (employmentItem: Omit<EmploymentEntry, 'id'>) => {
-    const skillsForEmployment = await processItemSkillsForGlobalStore((employmentItem as any).skillsDemonstrated || []);
+    const skillsForEmployment = await processItemSkillsForGlobalStore(employmentItem.skillsDemonstrated || []);
     await storeAddEmploymentEntry({ ...employmentItem, skillsDemonstrated: skillsForEmployment });
   };
   
@@ -266,7 +323,7 @@ export function ProfileTabContent() {
   };
 
   const handleAddProject = async (projectItem: Omit<ProjectEntry, 'id'>) => {
-    const skillsForProject = await processItemSkillsForGlobalStore((projectItem as any).skillsUsed || []);
+    const skillsForProject = await processItemSkillsForGlobalStore(projectItem.skillsUsed || []);
     await storeAddProjectEntry({ ...projectItem, skillsUsed: skillsForProject });
   };
   
@@ -385,6 +442,33 @@ export function ProfileTabContent() {
       </div>
     );
   };
+  
+  const renderEducationItem = (item: EducationEntry) => {
+    const isExpanded = expandedEducationId === item.id;
+    return (
+      <div className="space-y-1.5">
+        <div 
+          className="flex justify-between items-start cursor-pointer group"
+          onClick={() => setExpandedEducationId(isExpanded ? null : item.id)}
+        >
+          <div className="flex-grow">
+            <h4 className="font-semibold text-md group-hover:text-primary transition-colors">{item.degree}</h4>
+            <p className="text-sm text-muted-foreground">{item.institution} {item.fieldOfStudy && ` - ${item.fieldOfStudy}`} | {item.dates}</p>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" aria-label={isExpanded ? "Collapse education details" : "Expand education details"}>
+            {isExpanded ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
+          </Button>
+        </div>
+        {isExpanded && item.description && (
+          <div className="pl-2 pt-2 border-l-2 border-muted ml-1 pb-2">
+            <p className="text-sm font-medium text-muted-foreground mb-0.5">Details:</p>
+            <p className="text-sm whitespace-pre-wrap">{item.description}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
 
   const employmentCustomAddButton = (
     <div className="ml-auto flex items-center gap-1">
@@ -479,6 +563,70 @@ export function ProfileTabContent() {
       <p className="text-muted-foreground">
         Build your professional profile. This information will be used by the AI to generate tailored resumes and cover letters.
       </p>
+      
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center text-xl font-headline">
+            <UserIcon className="mr-2 h-6 w-6 text-primary" />
+            Personal Details
+          </CardTitle>
+          <CardDescription>Update your basic contact and online presence information.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="pd-name">Full Name</Label>
+              <Input id="pd-name" name="name" value={localPersonalDetails.name || ''} onChange={handlePersonalDetailsChange} placeholder="e.g., Jane Doe" />
+            </div>
+            <div>
+              <Label htmlFor="pd-email">Email</Label>
+              <Input id="pd-email" name="email" type="email" value={localPersonalDetails.email || ''} onChange={handlePersonalDetailsChange} placeholder="e.g., jane.doe@example.com" />
+            </div>
+            <div>
+              <Label htmlFor="pd-phone">Phone</Label>
+              <Input id="pd-phone" name="phone" type="tel" value={localPersonalDetails.phone || ''} onChange={handlePersonalDetailsChange} placeholder="e.g., (555) 123-4567" />
+            </div>
+            <div>
+              <Label htmlFor="pd-address">Address (City, State)</Label>
+              <Input id="pd-address" name="address" value={localPersonalDetails.address || ''} onChange={handlePersonalDetailsChange} placeholder="e.g., San Francisco, CA" />
+            </div>
+            <div>
+              <Label htmlFor="pd-linkedin">LinkedIn URL</Label>
+              <Input id="pd-linkedin" name="linkedinUrl" type="url" value={localPersonalDetails.linkedinUrl || ''} onChange={handlePersonalDetailsChange} placeholder="https://linkedin.com/in/yourprofile" />
+            </div>
+            <div>
+              <Label htmlFor="pd-github">GitHub URL</Label>
+              <Input id="pd-github" name="githubUrl" type="url" value={localPersonalDetails.githubUrl || ''} onChange={handlePersonalDetailsChange} placeholder="https://github.com/yourusername" />
+            </div>
+          </div>
+          <EditableList<SocialMediaLink>
+              title="Other Social Media / Links"
+              items={localPersonalDetails.socialMediaLinks || []}
+              fields={socialMediaFields}
+              onAddItem={handleAddSocialMediaLink}
+              onUpdateItem={handleUpdateSocialMediaLink}
+              onRemoveItem={handleRemoveSocialMediaLink}
+              itemToString={(item) => `${item.platform}: ${item.url}`}
+              icon={<LinkIcon className="h-5 w-5 text-primary" />}
+          />
+        </CardContent>
+        <CardFooter>
+          <Button onClick={handleSavePersonalDetails}><SaveIcon className="mr-2 h-4 w-4"/>Save Personal Details</Button>
+        </CardFooter>
+      </Card>
+
+      <EditableList<EducationEntry>
+        ref={educationListRef}
+        title="Education History"
+        items={educationHistory}
+        fields={educationFields}
+        onAddItem={storeAddEducationEntry}
+        onUpdateItem={storeUpdateEducationEntry}
+        onRemoveItem={storeRemoveEducationEntry}
+        renderItem={renderEducationItem}
+        itemToString={(item) => `${item.degree} at ${item.institution}`}
+        icon={<GraduationCapIcon className="h-6 w-6 text-primary" />}
+      />
       
       <EditableList<EmploymentEntry>
         ref={employmentListRef}

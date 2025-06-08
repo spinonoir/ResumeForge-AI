@@ -2,15 +2,32 @@
 "use client";
 
 import { create } from 'zustand';
-import type { EmploymentHistory, Skills, Projects, SavedApplication, EmploymentEntry, SkillEntry, ProjectEntry } from '@/types';
+import type { 
+  EmploymentHistory, Skills, Projects, SavedApplication, 
+  EmploymentEntry, SkillEntry, ProjectEntry, PersonalDetails, EducationEntry, SocialMediaLink 
+} from '@/types';
 import { toast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, writeBatch, query, where } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
+
+const defaultPersonalDetails: PersonalDetails = {
+  name: '',
+  email: '',
+  phone: '',
+  address: '',
+  githubUrl: '',
+  linkedinUrl: '',
+  socialMediaLinks: [],
+};
 
 interface UserProfileState {
   userId: string | null;
   setUserId: (userId: string | null) => void;
   isLoadingProfile: boolean;
+
+  personalDetails: PersonalDetails;
+  setPersonalDetails: (details: PersonalDetails) => Promise<void>;
+  
   employmentHistory: EmploymentEntry[];
   addEmploymentEntry: (entry: Omit<EmploymentEntry, 'id'>) => Promise<void>;
   updateEmploymentEntry: (id: string, entry: Partial<Omit<EmploymentEntry, 'id'>>) => Promise<void>;
@@ -25,27 +42,43 @@ interface UserProfileState {
   updateProjectEntry: (id: string, entry: Partial<Omit<ProjectEntry, 'id'>>) => Promise<void>;
   removeProjectEntry: (id: string) => Promise<void>;
   
+  educationHistory: EducationEntry[];
+  addEducationEntry: (entry: Omit<EducationEntry, 'id'>) => Promise<void>;
+  updateEducationEntry: (id: string, entry: Partial<Omit<EducationEntry, 'id'>>) => Promise<void>;
+  removeEducationEntry: (id: string) => Promise<void>;
+
   backgroundInformation: string;
   setBackgroundInformation: (info: string) => Promise<void>;
 
   loadUserProfile: (userId: string) => Promise<void>;
   clearUserProfile: () => void;
 
+  getAIPersonalDetails: () => PersonalDetails;
+  getAIEducationHistory: () => EducationEntry[];
   getAIEmploymentHistory: () => EmploymentHistory;
   getAISkills: () => Skills;
   getAIProjects: () => Projects;
 }
 
-const saveProfileToFirestore = async (userId: string, profileData: Partial<Pick<UserProfileState, 'employmentHistory' | 'skills' | 'projects' | 'backgroundInformation'>>) => {
+const saveProfileToFirestore = async (userId: string, profileData: Partial<Pick<UserProfileState, 'personalDetails' | 'employmentHistory' | 'skills' | 'projects' | 'educationHistory' | 'backgroundInformation'>>) => {
   if (!userId) return;
   const profileRef = doc(db, 'users', userId, 'profile', 'data');
   
   const dataToSave: { [key: string]: any } = {};
 
+  if (profileData.personalDetails !== undefined) {
+    dataToSave.personalDetails = {
+      ...defaultPersonalDetails, // ensure all keys exist even if empty
+      ...profileData.personalDetails,
+      socialMediaLinks: (profileData.personalDetails.socialMediaLinks || []).map(sm => ({ platform: sm.platform, url: sm.url, id: sm.id || Date.now().toString()})),
+    };
+  }
   if (profileData.employmentHistory !== undefined) {
     dataToSave.employmentHistory = profileData.employmentHistory.map(eh => ({
       ...eh,
       skillsDemonstrated: eh.skillsDemonstrated || [],
+      jobSummary: eh.jobSummary || '',
+      description: eh.description || '',
     }));
   }
   if (profileData.skills !== undefined) {
@@ -56,6 +89,14 @@ const saveProfileToFirestore = async (userId: string, profileData: Partial<Pick<
       ...p,
       skillsUsed: p.skillsUsed || [],
       link: p.link || null, 
+      roleDescription: p.roleDescription || '',
+    }));
+  }
+  if (profileData.educationHistory !== undefined) {
+    dataToSave.educationHistory = profileData.educationHistory.map(edu => ({
+      ...edu,
+      fieldOfStudy: edu.fieldOfStudy || '',
+      description: edu.description || '',
     }));
   }
   if (profileData.backgroundInformation !== undefined) {
@@ -71,9 +112,11 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
   userId: null,
   setUserId: (userId) => set({ userId }),
   isLoadingProfile: true,
+  personalDetails: {...defaultPersonalDetails},
   employmentHistory: [],
   skills: [],
   projects: [],
+  educationHistory: [],
   backgroundInformation: '',
 
   loadUserProfile: async (userId) => {
@@ -83,10 +126,17 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
     if (docSnap.exists()) {
       const data = docSnap.data();
       set({
+        personalDetails: {
+            ...defaultPersonalDetails, 
+            ...(data.personalDetails || {}),
+            socialMediaLinks: (data.personalDetails?.socialMediaLinks || []).map((sm: any) => ({...sm, id: sm.id || Date.now().toString() + Math.random()}))
+        },
         employmentHistory: (data.employmentHistory || []).map((eh: any) => ({
             ...eh,
             id: eh.id || Date.now().toString() + Math.random(),
             skillsDemonstrated: eh.skillsDemonstrated || [],
+            jobSummary: eh.jobSummary || '',
+            description: eh.description || '',
         })),
         skills: (data.skills || []).map((s: any) => ({ 
             id: s.id || Date.now().toString() + Math.random(), 
@@ -98,6 +148,13 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
             id: p.id || Date.now().toString() + Math.random(),
             skillsUsed: p.skillsUsed || [], 
             link: p.link === null ? undefined : p.link, 
+            roleDescription: p.roleDescription || '',
+        })),
+        educationHistory: (data.educationHistory || []).map((edu: any) => ({
+            ...edu,
+            id: edu.id || Date.now().toString() + Math.random(),
+            fieldOfStudy: edu.fieldOfStudy || '',
+            description: edu.description || '',
         })),
         backgroundInformation: data.backgroundInformation || '',
         isLoadingProfile: false,
@@ -105,6 +162,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
     } else {
       if (process.env.NODE_ENV === 'development' && (!userId || userId.startsWith('dummy_dev_user_id'))) { 
          set({
+            personalDetails: { ...defaultPersonalDetails, name: "Dev User", email: "dev@example.com"},
             employmentHistory: [
               { id: 'dev1', title: 'Software Engineer (Dev)', company: 'Tech Solutions Inc.', dates: 'Jan 2020 - Present', jobSummary: 'Dev summary for test.', description: 'Dev data for test description.', skillsDemonstrated: ['React', 'Node.js'] },
             ],
@@ -118,22 +176,31 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
               roleDescription: 'Lead developer for this awesome dev project.',
               link: 'https://example.com/devproject'
             }],
+            educationHistory: [{ id: 'devedu1', institution: 'Dev University', degree: 'B.S. Computer Science', dates: '2016-2020', description: 'Graduated with honors.' }],
             backgroundInformation: 'Dev background info.',
             isLoadingProfile: false,
          });
       } else {
-        set({ isLoadingProfile: false }); 
+        set({ isLoadingProfile: false, personalDetails: {...defaultPersonalDetails}, educationHistory: [] }); 
       }
     }
   },
   clearUserProfile: () => set({
+    personalDetails: {...defaultPersonalDetails},
     employmentHistory: [],
     skills: [],
     projects: [],
+    educationHistory: [],
     backgroundInformation: '',
     userId: null,
     isLoadingProfile: false,
   }),
+
+  setPersonalDetails: async (details) => {
+    const newDetails = { ...get().personalDetails, ...details };
+    set({ personalDetails: newDetails });
+    await saveProfileToFirestore(get().userId!, { personalDetails: newDetails });
+  },
 
   addEmploymentEntry: async (entry) => {
     const newEntry: EmploymentEntry = { ...entry, id: Date.now().toString(), skillsDemonstrated: entry.skillsDemonstrated || [] };
@@ -187,20 +254,42 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
     }));
     await saveProfileToFirestore(get().userId!, { projects: get().projects });
   },
+  removeProjectEntry: async (id) => {
+    set((state) => ({ projects: state.projects.filter((p) => p.id !== id) }));
+    await saveProfileToFirestore(get().userId!, { projects: get().projects });
+  },
+
+  addEducationEntry: async (entry) => {
+    const newEntry: EducationEntry = { ...entry, id: Date.now().toString() };
+    set((state) => ({ educationHistory: [...state.educationHistory, newEntry] }));
+    await saveProfileToFirestore(get().userId!, { educationHistory: get().educationHistory });
+  },
+  updateEducationEntry: async (id, updatedEntry) => {
+    set((state) => ({ 
+      educationHistory: state.educationHistory.map(e => e.id === id ? {...e, ...updatedEntry} : e) 
+    }));
+    await saveProfileToFirestore(get().userId!, { educationHistory: get().educationHistory });
+  },
+  removeEducationEntry: async (id) => {
+    set((state) => ({ educationHistory: state.educationHistory.filter((e) => e.id !== id) }));
+    await saveProfileToFirestore(get().userId!, { educationHistory: get().educationHistory });
+  },
 
   setBackgroundInformation: async (backgroundInformation) => {
     set({ backgroundInformation });
     await saveProfileToFirestore(get().userId!, { backgroundInformation });
   },
 
-  getAIEmploymentHistory: () => get().employmentHistory.map(({ title, company, dates, description, jobSummary, skillsDemonstrated }) => ({ title, company, dates, description, jobSummary: jobSummary || '', skillsDemonstrated: skillsDemonstrated || [] })),
+  getAIPersonalDetails: () => get().personalDetails,
+  getAIEducationHistory: () => get().educationHistory.map(edu => ({ ...edu, fieldOfStudy: edu.fieldOfStudy || '', description: edu.description || '' })),
+  getAIEmploymentHistory: () => get().employmentHistory.map(({ title, company, dates, description, jobSummary, skillsDemonstrated }) => ({ title, company, dates, description: description || '', jobSummary: jobSummary || '', skillsDemonstrated: skillsDemonstrated || [] })),
   getAISkills: () => get().skills.map(skill => skill.name), 
   getAIProjects: () => get().projects.map(({ name, association, dates, skillsUsed, roleDescription, link }) => ({ 
     name, 
     association, 
     dates, 
     skillsUsed: skillsUsed || [], 
-    roleDescription, 
+    roleDescription: roleDescription || '', 
     link: link || undefined 
   })),
 }));
@@ -281,8 +370,15 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
 }));
 
 if (process.env.NODE_ENV === 'development') {
-  const { userId, loadUserProfile, employmentHistory, skills, projects, backgroundInformation } = useUserProfileStore.getState();
-  const isProfileEffectivelyEmpty = !userId && employmentHistory.length === 0 && skills.length === 0 && projects.length === 0 && !backgroundInformation;
+  const { userId, loadUserProfile, employmentHistory, skills, projects, backgroundInformation, personalDetails, educationHistory } = useUserProfileStore.getState();
+  const isProfileEffectivelyEmpty = !userId && 
+    employmentHistory.length === 0 && 
+    skills.length === 0 && 
+    projects.length === 0 && 
+    !backgroundInformation &&
+    (!personalDetails.name) && 
+    educationHistory.length === 0;
+
   if (isProfileEffectivelyEmpty) { 
     loadUserProfile("dummy_dev_user_id_for_initial_load_if_needed");
   }

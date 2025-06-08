@@ -13,7 +13,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-// Define schemas for employment history, skills, and projects.
+// Define schemas for employment history, skills, projects, personal details, and education.
 const EmploymentHistorySchema = z.array(z.object({
   title: z.string().describe('Job title'),
   company: z.string().describe('Company name'),
@@ -37,12 +37,42 @@ const ProjectsSchema = z.array(z.object({
 }));
 export type Projects = z.infer<typeof ProjectsSchema>;
 
+const SocialMediaLinkSchema = z.object({
+  id: z.string().optional(), // ID is primarily for client-side state, optional for AI
+  platform: z.string().describe('Social media platform name (e.g., Twitter, GitHub, Portfolio)'),
+  url: z.string().url().describe('URL to the social media profile or site'),
+});
+
+const PersonalDetailsSchema = z.object({
+  name: z.string().optional().describe('Full name of the user.'),
+  email: z.string().email().optional().describe('Email address.'),
+  phone: z.string().optional().describe('Phone number.'),
+  address: z.string().optional().describe('Physical address (e.g., City, State).'),
+  githubUrl: z.string().url().optional().describe('URL to GitHub profile.'),
+  linkedinUrl: z.string().url().optional().describe('URL to LinkedIn profile.'),
+  socialMediaLinks: z.array(SocialMediaLinkSchema).optional().describe('List of other social media links.'),
+});
+export type PersonalDetails = z.infer<typeof PersonalDetailsSchema>;
+
+const EducationEntrySchema = z.object({
+  id: z.string().optional(), // ID is primarily for client-side state, optional for AI
+  institution: z.string().describe('Name of the educational institution.'),
+  degree: z.string().describe('Degree obtained (e.g., Bachelor of Science).'),
+  fieldOfStudy: z.string().optional().describe('Field of study (e.g., Computer Science).'),
+  dates: z.string().describe('Dates of attendance or graduation (e.g., Aug 2018 - May 2022).'),
+  description: z.string().optional().describe('Additional details like GPA, honors, relevant coursework, or activities.'),
+});
+export type EducationEntry = z.infer<typeof EducationEntrySchema>;
+
+
 const GenerateResumeInputSchema = z.object({
   jobDescription: z.string().describe('The job description to tailor the resume to.'),
+  personalDetails: PersonalDetailsSchema.optional().describe('The user\'s personal details.'),
+  backgroundInformation: z.string().describe('Background information about the user.'),
+  educationHistory: z.array(EducationEntrySchema).optional().describe('The user\'s education history.'),
   employmentHistory: EmploymentHistorySchema.describe('The user\'s employment history.'),
   skills: SkillsSchema.describe('The user\'s skills.'),
   projects: ProjectsSchema.describe('The user\'s projects.'),
-  backgroundInformation: z.string().describe('Background information about the user.'),
 });
 export type GenerateResumeInput = z.infer<typeof GenerateResumeInputSchema>;
 
@@ -68,11 +98,38 @@ const resumePrompt = ai.definePrompt({
   output: {
     schema: GenerateResumeOutputSchema,
   },
-  prompt: `You are a resume expert. Create a tailored resume, summary blurb, cover letter and match analysis based on the following job description and user information.
+  prompt: `You are a resume expert. Create a tailored resume, summary blurb, cover letter and match analysis based on the following job description and user information. The resume should be in LaTeX format.
 
 Job Description: {{{jobDescription}}}
 
+User Information:
+{{#if personalDetails}}
+Name: {{personalDetails.name}}
+Email: {{personalDetails.email}}
+Phone: {{personalDetails.phone}}
+Address: {{personalDetails.address}}
+{{#if personalDetails.linkedinUrl}}LinkedIn: {{personalDetails.linkedinUrl}}{{/if}}
+{{#if personalDetails.githubUrl}}GitHub: {{personalDetails.githubUrl}}{{/if}}
+{{#if personalDetails.socialMediaLinks}}
+Other Links:
+{{#each personalDetails.socialMediaLinks}}
+  - {{platform}}: {{url}}
+{{/each}}
+{{/if}}
+{{/if}}
+
 Background Information: {{{backgroundInformation}}}
+
+{{#if educationHistory}}
+Education:
+{{#each educationHistory}}
+  Institution: {{{institution}}}
+  Degree: {{{degree}}}
+  {{#if fieldOfStudy}}Field of Study: {{{fieldOfStudy}}}{{/if}}
+  Dates: {{{dates}}}
+  {{#if description}}Description: {{{description}}}{{/if}}
+{{/each}}
+{{/if}}
 
 Employment History:
 {{#each employmentHistory}}
