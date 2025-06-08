@@ -6,7 +6,7 @@ import { useUserProfileStore } from '@/lib/store';
 import type { EmploymentEntry, SkillEntry, ProjectEntry } from '@/types';
 import { EditableList, type EditableListRef } from '@/components/EditableList';
 import { BackgroundBuilder } from '@/components/profile/BackgroundBuilder';
-import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon, CheckIcon, FileTextIcon, EditIcon, ClipboardListIcon, FilterIcon } from 'lucide-react';
+import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon, CheckIcon, FileTextIcon, EditIcon, ClipboardListIcon, FilterIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -65,10 +65,11 @@ export function ProfileTabContent() {
   const [pendingProjectAIData, setPendingProjectAIData] = useState<ParseProjectTextOutput | null>(null);
   const [projectAISkillsEditText, setProjectAISkillsEditText] = useState('');
 
-  // State for skills section enhancements
   const [skillsExpanded, setSkillsExpanded] = useState(false);
   const [selectedSkillCategory, setSelectedSkillCategory] = useState<string>("All Categories");
   const SKILLS_COLLAPSED_LIMIT = 8;
+  
+  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
 
 
   const employmentParseMutation = useMutation<ParseEmploymentTextOutput, Error, ParseEmploymentTextInput>({
@@ -170,7 +171,6 @@ export function ProfileTabContent() {
     }
     let skillsAddedCount = 0;
     for (const skill of suggestedSkills) {
-      // Check if skill already exists (case-insensitive) before attempting to add
       const existingGlobalSkill = useUserProfileStore.getState().skills.find(s => s.name.toLowerCase() === skill.name.toLowerCase());
       if (!existingGlobalSkill) {
         await storeAddSkill({ name: skill.name, category: skill.category });
@@ -211,9 +211,7 @@ export function ProfileTabContent() {
       return generalParentSkill.name; 
     }
     
-    // If no match, add it (storeAddSkill internally checks for exact duplicates before adding)
     await globalAddSkill({ name: trimmedProjectSkillName, category: "Uncategorized" });
-    // Re-fetch to get the potentially newly added skill's canonical name or the existing one if addSkill deduped
     const updatedGlobalSkills = useUserProfileStore.getState().skills;
     const finalMatch = updatedGlobalSkills.find(gs => gs.name.toLowerCase() === lcTrimmedProjectSkillName);
     return finalMatch ? finalMatch.name : trimmedProjectSkillName; 
@@ -266,46 +264,64 @@ export function ProfileTabContent() {
     </div>
   );
 
-  const renderProjectItem = (item: ProjectEntry) => (
-     <div className="space-y-1.5">
-      <h4 className="font-semibold text-md">{item.name}</h4>
-      <p className="text-sm text-muted-foreground">
-        {item.association} | {item.dates}
-      </p>
-      <div>
-        <p className="text-sm font-medium text-muted-foreground mb-1">Role & Contributions:</p>
-        <p className="text-sm whitespace-pre-wrap">{item.roleDescription}</p>
-      </div>
-      {item.skillsUsed && item.skillsUsed.length > 0 && (
-        <div>
-          <p className="text-sm font-medium text-muted-foreground mb-1">Skills Used:</p>
-          <div className="flex flex-wrap gap-1.5">
-            {item.skillsUsed.map(skillName => (
-              <span 
-                key={skillName} 
-                className="bg-accent text-accent-foreground px-2.5 py-1 rounded-full text-xs font-medium"
-              >
-                {skillName}
-              </span>
-            ))}
+  const renderProjectItem = (item: ProjectEntry) => {
+    const isExpanded = expandedProjectId === item.id;
+    return (
+      <div className="space-y-1.5">
+        <div 
+          className="flex justify-between items-start cursor-pointer group"
+          onClick={() => setExpandedProjectId(isExpanded ? null : item.id)}
+        >
+          <div className="flex-grow">
+            <h4 className="font-semibold text-md group-hover:text-primary transition-colors">{item.name}</h4>
+            <p className="text-sm text-muted-foreground">
+              {item.association} | {item.dates}
+            </p>
           </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" aria-label={isExpanded ? "Collapse project details" : "Expand project details"}>
+            {isExpanded ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
+          </Button>
         </div>
-      )}
-      {item.link && (
-        <div>
-          <p className="text-sm font-medium text-muted-foreground mb-0.5">Link:</p>
-          <a 
-              href={item.link.startsWith('http') ? item.link : `https://${item.link}`} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="text-sm text-primary hover:underline break-all"
-          >
-              {item.link}
-          </a>
-        </div>
-      )}
-    </div>
-  );
+  
+        {isExpanded && (
+          <div className="pl-2 pt-2 space-y-3 border-l-2 border-muted ml-1 pb-2">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-1">Role & Contributions:</p>
+              <p className="text-sm whitespace-pre-wrap">{item.roleDescription}</p>
+            </div>
+            {item.skillsUsed && item.skillsUsed.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Skills Used:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {item.skillsUsed.map(skillName => (
+                    <span
+                      key={skillName}
+                      className="bg-accent text-accent-foreground px-2.5 py-1 rounded-full text-xs font-medium"
+                    >
+                      {skillName}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {item.link && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-0.5">Link:</p>
+                <a
+                  href={item.link.startsWith('http') ? item.link : `https://${item.link}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline break-all"
+                >
+                  {item.link}
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const employmentCustomAddButton = (
     <div className="ml-auto flex items-center gap-1">
@@ -363,7 +379,6 @@ export function ProfileTabContent() {
     return projects.some(p => p.skillsUsed && p.skillsUsed.some(s => s.toLowerCase() === nameLower));
   };
 
-  // Derived state for skills display
   const uniqueCategories = useMemo(() => {
     const categories = new Set<string>();
     skills.forEach(skill => {
@@ -428,7 +443,7 @@ export function ProfileTabContent() {
                 value={selectedSkillCategory}
                 onValueChange={(value) => {
                   setSelectedSkillCategory(value);
-                  setSkillsExpanded(false); // Reset expansion when category changes
+                  setSkillsExpanded(false); 
                 }}
               >
                 <SelectTrigger id="skill-category-filter" className="w-full sm:w-[280px]">
@@ -459,20 +474,15 @@ export function ProfileTabContent() {
               return <p className="text-muted-foreground mt-2">No skills found in the category "{selectedSkillCategory}". Try selecting "All Categories".</p>;
             }
             if (displayedSkills.length === 0 && skillsInCurrentCategory.length > 0) {
-                 // This case implies skillsExpanded is false and limit is 0, or some other edge case.
-                 // Primarily, if skillsInCurrentCategory has items, displayedSkills should too unless limit is 0.
-                 // For safety, let's message if displayedSkills is empty but underlying filtered list is not.
                 return <p className="text-muted-foreground mt-2">Skills available. Click "Show More" if applicable.</p>;
             }
              if (displayedSkills.length === 0 && skillsInCurrentCategory.length === 0 && selectedSkillCategory === "All Categories") {
-                 // This should be caught by skills.length === 0, but as a safeguard
                 return <p className="text-muted-foreground mt-2">No skills added yet.</p>;
             }
 
-
             return (
               <>
-                <div className="flex flex-wrap gap-2 mt-2 min-h-[36px]"> {/* min-h to prevent layout shift when empty */}
+                <div className="flex flex-wrap gap-2 mt-2 min-h-[36px]">
                   {displayedSkills.map(skill => (
                     <span key={skill.id} className="flex items-center bg-accent text-accent-foreground pl-3 pr-1 py-1 rounded-full text-sm">
                       {skill.name}
@@ -521,7 +531,6 @@ export function ProfileTabContent() {
       
       <BackgroundBuilder />
 
-      {/* Employment AI Parsing Dialog */}
       <Dialog open={isAIParsingDialogOpen} onOpenChange={setIsAIParsingDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -551,7 +560,6 @@ export function ProfileTabContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Skills AI Parsing Dialog */}
       <Dialog open={isAISkillsDialogOpen} onOpenChange={(isOpen) => {
           setIsAISkillsDialogOpen(isOpen);
           if (!isOpen) {
@@ -612,7 +620,6 @@ export function ProfileTabContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Project AI Parsing Dialog */}
       <Dialog open={isAIProjectParsingDialogOpen} onOpenChange={(isOpen) => {
         setIsAIProjectParsingDialogOpen(isOpen);
         if (!isOpen) { 
@@ -723,3 +730,5 @@ export function ProfileTabContent() {
   );
 }
 
+
+    
