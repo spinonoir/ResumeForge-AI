@@ -1,12 +1,12 @@
 
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useUserProfileStore } from '@/lib/store';
 import type { EmploymentEntry, SkillEntry, ProjectEntry } from '@/types';
 import { EditableList, type EditableListRef } from '@/components/EditableList';
 import { BackgroundBuilder } from '@/components/profile/BackgroundBuilder';
-import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon, CheckIcon, FileTextIcon, EditIcon, ClipboardListIcon } from 'lucide-react';
+import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon, CheckIcon, FileTextIcon, EditIcon, ClipboardListIcon, FilterIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,6 +18,8 @@ import { parseAndCategorizeSkills, type ParseSkillsInput, type ParseSkillsOutput
 import { parseProjectText, type ParseProjectTextInput, type ParseProjectTextOutput } from '@/ai/flows/project-text-parser-flow';
 import { toast } from '@/hooks/use-toast';
 import { Label } from '../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 const employmentFields = [
   { name: 'title', label: 'Job Title', type: 'text' as 'text', placeholder: 'e.g., Software Engineer' },
@@ -62,6 +64,11 @@ export function ProfileTabContent() {
   const [projectTextToParse, setProjectTextToParse] = useState('');
   const [pendingProjectAIData, setPendingProjectAIData] = useState<ParseProjectTextOutput | null>(null);
   const [projectAISkillsEditText, setProjectAISkillsEditText] = useState('');
+
+  // State for skills section enhancements
+  const [skillsExpanded, setSkillsExpanded] = useState(false);
+  const [selectedSkillCategory, setSelectedSkillCategory] = useState<string>("All Categories");
+  const SKILLS_COLLAPSED_LIMIT = 8;
 
 
   const employmentParseMutation = useMutation<ParseEmploymentTextOutput, Error, ParseEmploymentTextInput>({
@@ -119,7 +126,7 @@ export function ProfileTabContent() {
       name: pendingProjectAIData.projectName,
       association: pendingProjectAIData.projectAssociation,
       dates: pendingProjectAIData.projectDates,
-      skillsUsed: projectAISkillsEditText.split(',').map(s => s.trim()).filter(s => s), // Pass as array
+      skillsUsed: projectAISkillsEditText.split(',').map(s => s.trim()).filter(s => s),
       roleDescription: pendingProjectAIData.projectRoleDescription,
       link: pendingProjectAIData.projectLink,
     });
@@ -163,6 +170,7 @@ export function ProfileTabContent() {
     }
     let skillsAddedCount = 0;
     for (const skill of suggestedSkills) {
+      // Check if skill already exists (case-insensitive) before attempting to add
       const existingGlobalSkill = useUserProfileStore.getState().skills.find(s => s.name.toLowerCase() === skill.name.toLowerCase());
       if (!existingGlobalSkill) {
         await storeAddSkill({ name: skill.name, category: skill.category });
@@ -172,13 +180,12 @@ export function ProfileTabContent() {
     if (skillsAddedCount > 0) {
         toast({ title: "Skills Processed", description: `${skillsAddedCount} new skills added to your profile.` });
     } else {
-        toast({ title: "Skills Processed", description: "No new skills were added (existing skills were not modified by this action)." });
+        toast({ title: "Skills Processed", description: "No new skills were added (existing skills might have been updated or matched)." });
     }
     setSuggestedSkills([]);
     setSkillsTextToParse('');
     setIsAISkillsDialogOpen(false);
   };
-
 
   const findOrAddSkillAndGetCanonicalName = async (skillNameFromProject: string): Promise<string> => {
     const { skills: globalSkills, addSkill: globalAddSkill } = useUserProfileStore.getState();
@@ -199,12 +206,17 @@ export function ProfileTabContent() {
               lcTrimmedProjectSkillName.charAt(lcGSName.length) === '.' || 
               !isNaN(parseInt(lcTrimmedProjectSkillName.charAt(lcGSName.length))) );
     });
+
     if (generalParentSkill) {
       return generalParentSkill.name; 
     }
     
+    // If no match, add it (storeAddSkill internally checks for exact duplicates before adding)
     await globalAddSkill({ name: trimmedProjectSkillName, category: "Uncategorized" });
-    return trimmedProjectSkillName; 
+    // Re-fetch to get the potentially newly added skill's canonical name or the existing one if addSkill deduped
+    const updatedGlobalSkills = useUserProfileStore.getState().skills;
+    const finalMatch = updatedGlobalSkills.find(gs => gs.name.toLowerCase() === lcTrimmedProjectSkillName);
+    return finalMatch ? finalMatch.name : trimmedProjectSkillName; 
   };
   
   const processProjectSkillsForGlobalStore = async (skillsUsedStringOrArray: string | string[]): Promise<string[]> => {
@@ -351,6 +363,31 @@ export function ProfileTabContent() {
     return projects.some(p => p.skillsUsed && p.skillsUsed.some(s => s.toLowerCase() === nameLower));
   };
 
+  // Derived state for skills display
+  const uniqueCategories = useMemo(() => {
+    const categories = new Set<string>();
+    skills.forEach(skill => {
+      if (skill.category) {
+        categories.add(skill.category);
+      }
+    });
+    return ["All Categories", ...Array.from(categories).sort()];
+  }, [skills]);
+
+  const skillsInCurrentCategory = useMemo(() => {
+    if (selectedSkillCategory === "All Categories") {
+      return skills;
+    }
+    return skills.filter(skill => skill.category === selectedSkillCategory);
+  }, [skills, selectedSkillCategory]);
+
+  const displayedSkills = useMemo(() => {
+    if (!skillsExpanded && skillsInCurrentCategory.length > SKILLS_COLLAPSED_LIMIT) {
+      return skillsInCurrentCategory.slice(0, SKILLS_COLLAPSED_LIMIT);
+    }
+    return skillsInCurrentCategory;
+  }, [skillsInCurrentCategory, skillsExpanded, SKILLS_COLLAPSED_LIMIT]);
+
 
   return (
     <div className="space-y-8">
@@ -378,28 +415,87 @@ export function ProfileTabContent() {
             <ListChecksIcon className="mr-2 h-6 w-6 text-primary" />
             Skills
           </CardTitle>
-          <CardDescription>Manage your professional skills. Use AI to import and categorize a list of skills. Skills used in projects will be marked with a check.</CardDescription>
+          <CardDescription>Manage your professional skills. Filter by category and expand to see all. Skills used in projects are marked with a check.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={() => { setSuggestedSkills([]); setSkillsTextToParse(''); setIsAISkillsDialogOpen(true); }} className="w-full sm:w-auto">
-            <BrainIcon className="mr-2 h-4 w-4" /> Import & Categorize Skills with AI
-          </Button>
-          {skills.length === 0 && !isAISkillsDialogOpen ? (
-             <p className="text-muted-foreground mt-4">No skills added yet. Click the button above to import skills.</p>
-          ) : (
-            <div className="flex flex-wrap gap-2 mt-4">
-              {skills.map(skill => (
-                <span key={skill.id} className="flex items-center bg-accent text-accent-foreground pl-3 pr-1 py-1 rounded-full text-sm">
-                  {skill.name}
-                  {skill.category && <span className="text-xs opacity-80 ml-1.5 mr-1">({skill.category})</span>}
-                  {isSkillVerified(skill.name) && <CheckIcon className="h-4 w-4 ml-0.5 text-green-300" />}
-                  <Button variant="ghost" size="icon" className="ml-1 h-5 w-5 hover:bg-accent/80 text-accent-foreground/70 hover:text-accent-foreground" onClick={() => removeSkill(skill.id)} aria-label={`Remove skill ${skill.name}`}>
-                    <XIcon className="h-3 w-3" />
-                  </Button>
-                </span>
-              ))}
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+            <div className="flex-grow">
+              <Label htmlFor="skill-category-filter" className="text-xs font-medium text-muted-foreground flex items-center mb-1">
+                <FilterIcon className="h-3 w-3 mr-1.5" />
+                Filter by Category
+              </Label>
+              <Select
+                value={selectedSkillCategory}
+                onValueChange={(value) => {
+                  setSelectedSkillCategory(value);
+                  setSkillsExpanded(false); // Reset expansion when category changes
+                }}
+              >
+                <SelectTrigger id="skill-category-filter" className="w-full sm:w-[280px]">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {uniqueCategories.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
+            <Button 
+              onClick={() => { setSuggestedSkills([]); setSkillsTextToParse(''); setIsAISkillsDialogOpen(true); }} 
+              className="w-full sm:w-auto shrink-0"
+            >
+              <BrainIcon className="mr-2 h-4 w-4" /> Import & Categorize Skills with AI
+            </Button>
+          </div>
+          
+          {(() => {
+            if (skills.length === 0) {
+              return <p className="text-muted-foreground mt-2">No skills added yet. Click the "Import & Categorize Skills with AI" button to add skills.</p>;
+            }
+            if (skillsInCurrentCategory.length === 0 && selectedSkillCategory !== "All Categories") {
+              return <p className="text-muted-foreground mt-2">No skills found in the category "{selectedSkillCategory}". Try selecting "All Categories".</p>;
+            }
+            if (displayedSkills.length === 0 && skillsInCurrentCategory.length > 0) {
+                 // This case implies skillsExpanded is false and limit is 0, or some other edge case.
+                 // Primarily, if skillsInCurrentCategory has items, displayedSkills should too unless limit is 0.
+                 // For safety, let's message if displayedSkills is empty but underlying filtered list is not.
+                return <p className="text-muted-foreground mt-2">Skills available. Click "Show More" if applicable.</p>;
+            }
+             if (displayedSkills.length === 0 && skillsInCurrentCategory.length === 0 && selectedSkillCategory === "All Categories") {
+                 // This should be caught by skills.length === 0, but as a safeguard
+                return <p className="text-muted-foreground mt-2">No skills added yet.</p>;
+            }
+
+
+            return (
+              <>
+                <div className="flex flex-wrap gap-2 mt-2 min-h-[36px]"> {/* min-h to prevent layout shift when empty */}
+                  {displayedSkills.map(skill => (
+                    <span key={skill.id} className="flex items-center bg-accent text-accent-foreground pl-3 pr-1 py-1 rounded-full text-sm">
+                      {skill.name}
+                      {skill.category && <span className="text-xs opacity-80 ml-1.5 mr-1">({skill.category})</span>}
+                      {isSkillVerified(skill.name) && <CheckIcon className="h-4 w-4 ml-0.5 text-green-300" />}
+                      <Button variant="ghost" size="icon" className="ml-1 h-5 w-5 hover:bg-accent/80 text-accent-foreground/70 hover:text-accent-foreground" onClick={() => removeSkill(skill.id)} aria-label={`Remove skill ${skill.name}`}>
+                        <XIcon className="h-3 w-3" />
+                      </Button>
+                    </span>
+                  ))}
+                </div>
+                {skillsInCurrentCategory.length > SKILLS_COLLAPSED_LIMIT && (
+                  <Button 
+                    variant="link" 
+                    onClick={() => setSkillsExpanded(!skillsExpanded)} 
+                    className="mt-2 pl-0 text-sm"
+                  >
+                    {skillsExpanded ? "Show Less" : `Show ${skillsInCurrentCategory.length - SKILLS_COLLAPSED_LIMIT} More`}
+                  </Button>
+                )}
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
 
