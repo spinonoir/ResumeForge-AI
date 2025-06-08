@@ -6,14 +6,16 @@ import { useUserProfileStore } from '@/lib/store';
 import type { EmploymentEntry, SkillEntry, ProjectEntry } from '@/types';
 import { EditableList, type EditableListRef } from '@/components/EditableList';
 import { BackgroundBuilder } from '@/components/profile/BackgroundBuilder';
-import { BriefcaseIcon, LightbulbIcon, SparklesIcon, UserCircle2Icon, PlusCircleIcon, Loader2Icon, XIcon } from 'lucide-react';
+import { BriefcaseIcon, LightbulbIcon, SparklesIcon, UserCircle2Icon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMutation } from '@tanstack/react-query';
 import { parseEmploymentText, type ParseEmploymentTextInput, type ParseEmploymentTextOutput } from '@/ai/flows/employment-text-parser-flow';
+import { parseAndCategorizeSkills, type ParseSkillsInput, type ParseSkillsOutput } from '@/ai/flows/skill-parser-categorizer-flow';
 import { toast } from '@/hooks/use-toast';
 
 const employmentFields = [
@@ -30,6 +32,11 @@ const projectFields = [
   { name: 'link', label: 'Link (Optional)', type: 'text' as 'text', placeholder: 'e.g., https://github.com/yourproject' },
 ];
 
+interface ParsedSkillFromAI {
+  name: string;
+  category: string;
+}
+
 export function ProfileTabContent() {
   const { 
     employmentHistory, addEmploymentEntry, updateEmploymentEntry, removeEmploymentEntry,
@@ -37,12 +44,15 @@ export function ProfileTabContent() {
     projects, addProjectEntry, updateProjectEntry, removeProjectEntry
   } = useUserProfileStore();
 
-  const [newSkill, setNewSkill] = useState('');
   const employmentListRef = useRef<EditableListRef<EmploymentEntry>>(null);
   const [isAIParsingDialogOpen, setIsAIParsingDialogOpen] = useState(false);
   const [textToParse, setTextToParse] = useState('');
 
-  const parseMutation = useMutation<ParseEmploymentTextOutput, Error, ParseEmploymentTextInput>({
+  const [isAISkillsDialogOpen, setIsAISkillsDialogOpen] = useState(false);
+  const [skillsTextToParse, setSkillsTextToParse] = useState('');
+  const [suggestedSkills, setSuggestedSkills] = useState<ParsedSkillFromAI[]>([]);
+
+  const employmentParseMutation = useMutation<ParseEmploymentTextOutput, Error, ParseEmploymentTextInput>({
     mutationFn: parseEmploymentText,
     onSuccess: (data) => {
       employmentListRef.current?.initiateAddItem({
@@ -61,19 +71,56 @@ export function ProfileTabContent() {
     }
   });
 
-  const handleParseAndPrefill = () => {
+  const skillsParseMutation = useMutation<ParseSkillsOutput, Error, ParseSkillsInput>({
+    mutationFn: parseAndCategorizeSkills,
+    onSuccess: (data) => {
+      setSuggestedSkills(data.skills);
+      if (data.skills.length > 0) {
+        toast({ title: "Skills Parsed", description: "Review the suggested skills and categories below." });
+      } else {
+        toast({ title: "No Skills Found", description: "The AI couldn't find skills in the provided text." });
+      }
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: "Skill Parsing Failed", description: error.message });
+      setSuggestedSkills([]);
+    }
+  });
+
+  const handleParseEmployment = () => {
     if (!textToParse.trim()) {
       toast({ variant: "destructive", title: "No Text Provided", description: "Please paste text to parse." });
       return;
     }
-    parseMutation.mutate({ textBlock: textToParse });
+    employmentParseMutation.mutate({ textBlock: textToParse });
   };
 
-  const handleAddSkill = () => {
-    if (newSkill.trim()) {
-      addSkill(newSkill.trim());
-      setNewSkill('');
+  const handleParseSkills = () => {
+    if (!skillsTextToParse.trim()) {
+      toast({ variant: "destructive", title: "No Text Provided", description: "Please paste skills text to parse." });
+      return;
     }
+    setSuggestedSkills([]); // Clear previous suggestions
+    skillsParseMutation.mutate({ textBlock: skillsTextToParse });
+  };
+
+  const handleAddAllSuggestedSkills = async () => {
+    if (suggestedSkills.length === 0) {
+      toast({ variant: "destructive", title: "No Skills to Add", description: "No skills were suggested." });
+      return;
+    }
+    let skillsAddedCount = 0;
+    for (const skill of suggestedSkills) {
+      // addSkill in store now handles duplicate checks
+      await addSkill({ name: skill.name, category: skill.category });
+      skillsAddedCount++; // Assuming addSkill is successful or handles its own errors/duplicates
+    }
+    if (skillsAddedCount > 0) {
+        toast({ title: "Skills Added", description: `${skillsAddedCount} skills/categories added to your profile.` });
+    }
+    setSuggestedSkills([]);
+    setSkillsTextToParse('');
+    setIsAISkillsDialogOpen(false);
   };
   
   const renderEmploymentItem = (item: EmploymentEntry, onEdit: () => void, onRemove: () => void) => (
@@ -83,7 +130,6 @@ export function ProfileTabContent() {
           <h4 className="font-semibold text-md">{item.title}</h4>
           <p className="text-sm text-muted-foreground">{item.company} | {item.dates}</p>
         </div>
-        {/* Edit/Remove buttons are handled by EditableList's default rendering or its internal buttons */}
       </div>
       {item.jobSummary && (
         <div className="mt-1">
@@ -105,7 +151,6 @@ export function ProfileTabContent() {
           <h4 className="font-semibold text-md">{item.name}</h4>
           {item.link && <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">{item.link}</a>}
         </div>
-         {/* Edit/Remove buttons are handled by EditableList's default rendering or its internal buttons */}
       </div>
       <p className="text-sm mt-1 whitespace-pre-wrap">{item.description}</p>
     </div>
@@ -158,29 +203,22 @@ export function ProfileTabContent() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center text-xl font-headline">
-            <SparklesIcon className="mr-2 h-6 w-6 text-primary" />
+            <ListChecksIcon className="mr-2 h-6 w-6 text-primary" />
             Skills
           </CardTitle>
+          <CardDescription>Manage your professional skills. Use AI to import and categorize a list of skills.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex space-x-2 mb-4">
-            <Input 
-              type="text"
-              value={newSkill}
-              onChange={(e) => setNewSkill(e.target.value)}
-              placeholder="e.g., Python, Project Management"
-              className="flex-grow"
-              onKeyPress={(e) => { if (e.key === 'Enter') { handleAddSkill(); e.preventDefault(); }}}
-            />
-            <Button onClick={handleAddSkill}>Add Skill</Button>
-          </div>
-          {skills.length === 0 ? (
-             <p className="text-muted-foreground">No skills added yet. Type a skill and click "Add Skill".</p>
+          <Button onClick={() => { setSuggestedSkills([]); setSkillsTextToParse(''); setIsAISkillsDialogOpen(true); }} className="w-full sm:w-auto">
+            <BrainIcon className="mr-2 h-4 w-4" /> Import & Categorize Skills with AI
+          </Button>
+          {skills.length === 0 && !isAISkillsDialogOpen ? (
+             <p className="text-muted-foreground mt-4">No skills added yet. Click the button above to import skills.</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mt-4">
               {skills.map(skill => (
                 <span key={skill.id} className="flex items-center bg-accent text-accent-foreground px-3 py-1 rounded-full text-sm">
-                  {skill.name}
+                  {skill.name} {skill.category && <span className="text-xs opacity-80 ml-1.5">({skill.category})</span>}
                   <Button variant="ghost" size="icon" className="ml-1 h-5 w-5 hover:bg-accent/80 text-accent-foreground/70 hover:text-accent-foreground" onClick={() => removeSkill(skill.id)} aria-label={`Remove skill ${skill.name}`}>
                     <XIcon className="h-3 w-3" />
                   </Button>
@@ -226,14 +264,74 @@ export function ProfileTabContent() {
                 Cancel
               </Button>
             </DialogClose>
-            <Button onClick={handleParseAndPrefill} disabled={parseMutation.isPending}>
-              {parseMutation.isPending && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleParseEmployment} disabled={employmentParseMutation.isPending}>
+              {employmentParseMutation.isPending && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
               Parse and Pre-fill Form
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isAISkillsDialogOpen} onOpenChange={(isOpen) => {
+          setIsAISkillsDialogOpen(isOpen);
+          if (!isOpen) {
+            setSuggestedSkills([]); // Clear suggestions when dialog closes
+            setSkillsTextToParse('');
+          }
+      }}>
+        <DialogContent className="sm:max-w-[600px] md:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-xl">Import & Categorize Skills with AI</DialogTitle>
+            <DialogDescription>Paste a list or block of text containing your skills. The AI will attempt to extract, clean, and categorize them.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <Textarea
+              placeholder="Paste your skills here (e.g., Python, JavaScript, Project Management, Team Leadership, Figma, AWS S3)..."
+              value={skillsTextToParse}
+              onChange={(e) => setSkillsTextToParse(e.target.value)}
+              rows={8}
+              className="w-full"
+              disabled={skillsParseMutation.isPending || suggestedSkills.length > 0}
+            />
+            {skillsParseMutation.isError && (
+                <p className="text-sm text-destructive">Error: {skillsParseMutation.error.message}</p>
+            )}
+            {suggestedSkills.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-md font-semibold mb-2">Suggested Skills & Categories:</h3>
+                <ScrollArea className="h-48 border rounded-md p-2">
+                  <ul className="space-y-1">
+                    {suggestedSkills.map((skill, index) => (
+                      <li key={index} className="text-sm p-1 bg-secondary/30 rounded">
+                        <strong>{skill.name}</strong> - <span className="text-muted-foreground">{skill.category}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </ScrollArea>
+                <p className="text-xs text-muted-foreground mt-1">Review the suggestions. Click "Add All" to add them to your profile.</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                {suggestedSkills.length > 0 ? "Close" : "Cancel"}
+              </Button>
+            </DialogClose>
+            {suggestedSkills.length === 0 ? (
+              <Button onClick={handleParseSkills} disabled={skillsParseMutation.isPending || !skillsTextToParse.trim()}>
+                {skillsParseMutation.isPending && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+                Parse and Suggest Skills
+              </Button>
+            ) : (
+              <Button onClick={handleAddAllSuggestedSkills}>
+                 Add All Suggested Skills to Profile
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
-

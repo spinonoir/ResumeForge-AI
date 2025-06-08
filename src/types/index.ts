@@ -1,3 +1,4 @@
+
 import type { EmploymentHistory as AIEmpHistory, Skills as AISkills, Projects as AIProjects } from '@/ai/flows/resume-generator';
 
 export type EmploymentEntry = {
@@ -12,6 +13,7 @@ export type EmploymentEntry = {
 export type SkillEntry = {
   id: string;
   name: string;
+  category?: string; // Added optional category
 };
 
 export type ProjectEntry = {
@@ -38,4 +40,3 @@ export interface SavedApplication {
   matchAnalysis: string;
   createdAt: string; 
 }
-

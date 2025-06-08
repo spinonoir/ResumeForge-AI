@@ -17,7 +17,7 @@ interface UserProfileState {
   removeEmploymentEntry: (id: string) => Promise<void>;
 
   skills: SkillEntry[];
-  addSkill: (skillName: string) => Promise<void>;
+  addSkill: (skillData: { name: string; category?: string }) => Promise<void>;
   removeSkill: (id: string) => Promise<void>;
 
   projects: ProjectEntry[];
@@ -46,7 +46,8 @@ const saveProfileToFirestore = async (userId: string, profileData: Partial<Pick<
     dataToSave.employmentHistory = profileData.employmentHistory;
   }
   if (profileData.skills !== undefined) {
-    dataToSave.skills = profileData.skills;
+    // Ensure skills array doesn't contain undefined if passed partially
+    dataToSave.skills = profileData.skills.map(s => ({ name: s.name, category: s.category || null, id: s.id }));
   }
   if (profileData.projects !== undefined) {
     dataToSave.projects = profileData.projects;
@@ -77,25 +78,28 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
       const data = docSnap.data();
       set({
         employmentHistory: data.employmentHistory || [],
-        skills: data.skills || [],
+        skills: (data.skills || []).map((s: any) => ({ // Ensure category is at least undefined
+            id: s.id || Date.now().toString() + Math.random(), // Ensure ID exists
+            name: s.name, 
+            category: s.category === null ? undefined : s.category 
+        })),
         projects: data.projects || [],
         backgroundInformation: data.backgroundInformation || '',
         isLoadingProfile: false,
       });
     } else {
-      // No profile yet, or load dev data if applicable
-      if (process.env.NODE_ENV === 'development' && !userId) { // only if no user, this condition is tricky now
+      if (process.env.NODE_ENV === 'development' && !userId.startsWith('dummy_dev_user_id')) { 
          set({
             employmentHistory: [
               { id: 'dev1', title: 'Software Engineer (Dev)', company: 'Tech Solutions Inc.', dates: 'Jan 2020 - Present', jobSummary: 'Dev summary.', description: 'Dev data.' },
             ],
-            skills: [{ id: 'devs1', name: 'DevSkill' }],
+            skills: [{ id: 'devs1', name: 'DevSkill', category: 'DevCategory' }],
             projects: [{ id: 'devp1', name: 'Dev Project', description: 'A dev project.' }],
             backgroundInformation: 'Dev background info.',
             isLoadingProfile: false,
          });
       } else {
-        set({ isLoadingProfile: false }); // No data, not loading
+        set({ isLoadingProfile: false }); 
       }
     }
   },
@@ -124,9 +128,18 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
     await saveProfileToFirestore(get().userId!, { employmentHistory: get().employmentHistory });
   },
 
-  addSkill: async (skillName) => {
-    if (!skillName.trim()) return;
-    const newSkill = { id: Date.now().toString(), name: skillName.trim() };
+  addSkill: async (skillData) => {
+    if (!skillData.name.trim()) return;
+    const newSkill: SkillEntry = { 
+      id: Date.now().toString(), 
+      name: skillData.name.trim(),
+      category: skillData.category?.trim() || undefined 
+    };
+    // Prevent adding duplicate skill names
+    if (get().skills.some(s => s.name.toLowerCase() === newSkill.name.toLowerCase())) {
+        toast({ variant: "default", title: "Skill Exists", description: `Skill "${newSkill.name}" is already in your profile.`});
+        return;
+    }
     set((state) => ({ skills: [...state.skills, newSkill] }));
     await saveProfileToFirestore(get().userId!, { skills: get().skills });
   },
@@ -155,7 +168,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
   },
 
   getAIEmploymentHistory: () => get().employmentHistory.map(({ title, company, dates, description, jobSummary }) => ({ title, company, dates, description, jobSummary: jobSummary || '' })),
-  getAISkills: () => get().skills.map(skill => skill.name),
+  getAISkills: () => get().skills.map(skill => skill.name), // For AI, just pass names
   getAIProjects: () => get().projects.map(({ name, description, link }) => ({ name, description, link: link || '' })),
 }));
 
@@ -186,7 +199,7 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
     const appsCollectionRef = collection(db, 'users', userId, 'applications');
     const querySnapshot = await getDocs(appsCollectionRef);
     const apps: SavedApplication[] = [];
-    querySnapshot.forEach((docSnap) => { // Changed doc to docSnap to avoid conflict with firestore's doc function
+    querySnapshot.forEach((docSnap) => { 
       apps.push({ id: docSnap.id, ...docSnap.data() } as SavedApplication);
     });
     set({ savedApplications: apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), isLoadingApplications: false });
@@ -234,12 +247,10 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
   }
 }));
 
-// Dev data population logic (minor adjustment if needed based on UserProfileState structure)
 if (process.env.NODE_ENV === 'development') {
   const { userId, loadUserProfile, employmentHistory, skills, projects, backgroundInformation } = useUserProfileStore.getState();
-  // Check if profile is essentially empty for the dev case, rather than just !userId
-  const isProfileEmpty = employmentHistory.length === 0 && skills.length === 0 && projects.length === 0 && !backgroundInformation;
-  if (!userId && isProfileEmpty) { 
-    loadUserProfile("dummy_dev_user_id_for_initial_load"); // This will trigger the else path in loadUserProfile if dummy_dev_user_id_for_initial_load doesn't exist
+  const isProfileEffectivelyEmpty = !userId && employmentHistory.length === 0 && skills.length === 0 && projects.length === 0 && !backgroundInformation;
+  if (isProfileEffectivelyEmpty) { 
+    loadUserProfile("dummy_dev_user_id_for_initial_load_if_needed");
   }
 }
