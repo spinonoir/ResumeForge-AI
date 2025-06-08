@@ -6,9 +6,8 @@ import { useUserProfileStore } from '@/lib/store';
 import type { EmploymentEntry, SkillEntry, ProjectEntry } from '@/types';
 import { EditableList, type EditableListRef } from '@/components/EditableList';
 import { BackgroundBuilder } from '@/components/profile/BackgroundBuilder';
-import { BriefcaseIcon, LightbulbIcon, SparklesIcon, UserCircle2Icon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon } from 'lucide-react';
+import { BriefcaseIcon, LightbulbIcon, SparklesIcon, PlusCircleIcon, Loader2Icon, XIcon, ListChecksIcon, BrainIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription } from "@/components/ui/dialog";
@@ -16,6 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMutation } from '@tanstack/react-query';
 import { parseEmploymentText, type ParseEmploymentTextInput, type ParseEmploymentTextOutput } from '@/ai/flows/employment-text-parser-flow';
 import { parseAndCategorizeSkills, type ParseSkillsInput, type ParseSkillsOutput } from '@/ai/flows/skill-parser-categorizer-flow';
+import { parseProjectText, type ParseProjectTextInput, type ParseProjectTextOutput } from '@/ai/flows/project-text-parser-flow';
 import { toast } from '@/hooks/use-toast';
 
 const employmentFields = [
@@ -45,12 +45,17 @@ export function ProfileTabContent() {
   } = useUserProfileStore();
 
   const employmentListRef = useRef<EditableListRef<EmploymentEntry>>(null);
+  const projectListRef = useRef<EditableListRef<ProjectEntry>>(null);
+
   const [isAIParsingDialogOpen, setIsAIParsingDialogOpen] = useState(false);
   const [textToParse, setTextToParse] = useState('');
 
   const [isAISkillsDialogOpen, setIsAISkillsDialogOpen] = useState(false);
   const [skillsTextToParse, setSkillsTextToParse] = useState('');
   const [suggestedSkills, setSuggestedSkills] = useState<ParsedSkillFromAI[]>([]);
+
+  const [isAIProjectParsingDialogOpen, setIsAIProjectParsingDialogOpen] = useState(false);
+  const [projectTextToParse, setProjectTextToParse] = useState('');
 
   const employmentParseMutation = useMutation<ParseEmploymentTextOutput, Error, ParseEmploymentTextInput>({
     mutationFn: parseEmploymentText,
@@ -86,6 +91,23 @@ export function ProfileTabContent() {
       setSuggestedSkills([]);
     }
   });
+  
+  const projectParseMutation = useMutation<ParseProjectTextOutput, Error, ParseProjectTextInput>({
+    mutationFn: parseProjectText,
+    onSuccess: (data) => {
+      projectListRef.current?.initiateAddItem({
+        name: data.projectName,
+        description: data.projectDescription,
+        link: data.projectLink,
+      });
+      toast({ title: "Project Parsing Successful", description: "Project form pre-filled. Please review and save." });
+      setIsAIProjectParsingDialogOpen(false);
+      setProjectTextToParse('');
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: "Project Parsing Failed", description: error.message });
+    }
+  });
 
   const handleParseEmployment = () => {
     if (!textToParse.trim()) {
@@ -102,6 +124,14 @@ export function ProfileTabContent() {
     }
     setSuggestedSkills([]); 
     skillsParseMutation.mutate({ textBlock: skillsTextToParse });
+  };
+
+  const handleParseProjectText = () => {
+    if (!projectTextToParse.trim()) {
+      toast({ variant: "destructive", title: "No Text Provided", description: "Please paste project text to parse." });
+      return;
+    }
+    projectParseMutation.mutate({ textBlock: projectTextToParse });
   };
 
   const handleAddAllSuggestedSkills = async () => {
@@ -169,6 +199,29 @@ export function ProfileTabContent() {
         </Button>
     </div>
   );
+  
+  const projectCustomAddButton = (
+    <div className="ml-auto flex items-center gap-1">
+        <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsAIProjectParsingDialogOpen(true)}
+            aria-label="Add new project with AI"
+            title="Add with AI"
+        >
+            <SparklesIcon className="h-5 w-5 text-primary" />
+        </Button>
+        <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => projectListRef.current?.initiateAddItem()}
+            aria-label="Add new project manually"
+            title="Add manually"
+        >
+            <PlusCircleIcon className="h-5 w-5 text-primary" />
+        </Button>
+    </div>
+  );
 
 
   return (
@@ -221,6 +274,7 @@ export function ProfileTabContent() {
       </Card>
 
       <EditableList<ProjectEntry>
+        ref={projectListRef}
         title="Projects"
         items={projects}
         fields={projectFields}
@@ -230,6 +284,7 @@ export function ProfileTabContent() {
         renderItem={renderProjectItem}
         itemToString={(item) => item.name}
         icon={<LightbulbIcon className="h-6 w-6 text-primary" />}
+        customAddButton={projectCustomAddButton}
       />
       
       <BackgroundBuilder />
@@ -238,7 +293,7 @@ export function ProfileTabContent() {
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle className="font-headline text-xl">Parse Employment Details from Text</DialogTitle>
-            <CardDescription>Paste a block of text from your resume or job history, and we'll try to fill in the fields for you.</CardDescription>
+            <DialogDescription>Paste a block of text from your resume or job history, and we'll try to fill in the fields for you.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <Textarea
@@ -319,6 +374,35 @@ export function ProfileTabContent() {
                  Add All Suggested Skills to Profile
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAIProjectParsingDialogOpen} onOpenChange={setIsAIProjectParsingDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-xl">Parse Project Details from Text</DialogTitle>
+            <DialogDescription>Paste a block of text describing your project, and we'll try to fill in the fields for you.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <Textarea
+              placeholder="Paste project text here..."
+              value={projectTextToParse}
+              onChange={(e) => setProjectTextToParse(e.target.value)}
+              rows={10}
+              className="w-full"
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button onClick={handleParseProjectText} disabled={projectParseMutation.isPending}>
+              {projectParseMutation.isPending && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+              Parse and Pre-fill Form
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
