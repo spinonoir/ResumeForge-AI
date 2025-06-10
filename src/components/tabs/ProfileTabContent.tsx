@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
@@ -653,7 +652,7 @@ export function ProfileTabContent() {
         transformInitialDataForForm={(initialData) => {
             let transformed = { ...initialData };
             if (initialData && Array.isArray(initialData.skillsDemonstrated)) {
-              transformed.skillsDemonstrated = (initialData.skillsDemonstrated as string[]).join(', ');
+              (transformed as any).skillsDemonstrated = (initialData.skillsDemonstrated as string[]).join(', ');
             }
             return transformed;
         }}
@@ -758,7 +757,7 @@ export function ProfileTabContent() {
         customAddButton={projectCustomAddButton}
         transformInitialDataForForm={(initialData) => {
           if (initialData && Array.isArray(initialData.skillsUsed)) {
-            return { ...initialData, skillsUsed: (initialData.skillsUsed as string[]).join(', ') };
+            return { ...initialData, skillsUsed: (initialData.skillsUsed as string[]).join(', ') } as any;
           }
           return initialData;
         }}

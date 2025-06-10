@@ -19,7 +19,7 @@ const defaultPersonalDetails: PersonalDetails = {
   socialMediaLinks: [],
 };
 
-interface UserProfileState {
+export interface UserProfileState {
   userId: string | null;
   setUserId: (userId: string | null) => void;
   isLoadingProfile: boolean;

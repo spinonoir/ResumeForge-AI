@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, type ReactNode, useImperativeHandle } from 'react';
+import React, { useState, type ReactNode, useImperativeHandle, forwardRef, type ForwardedRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,7 +9,7 @@ import { Edit2Icon, PlusCircleIcon, CheckIcon, Trash2Icon } from 'lucide-react';
 
 interface Item {
   id: string;
-  [key: string]: string | number | boolean | null;
+  [key: string]: any;
 }
 
 interface FieldConfig {
@@ -207,5 +207,5 @@ const EditableListInner = <T extends Item>(
     </Card>
   );
 }
-export const EditableList = React.forwardRef(EditableListInner);
+export const EditableList = forwardRef(EditableListInner) as <T extends Item>(props: EditableListProps<T> & { ref?: ForwardedRef<EditableListRef<T>> }) => React.ReactElement;
 
