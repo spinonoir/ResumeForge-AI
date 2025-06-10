@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -10,16 +11,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2Icon, FileTextIcon, MailIcon, BarChart3Icon, CheckCircleIcon, SaveIcon, Wand2Icon, ClipboardListIcon } from 'lucide-react';
+import { Loader2Icon, FileTextIcon, MailIcon, BarChart3Icon, CheckCircleIcon, SaveIcon, Wand2Icon, ClipboardListIcon, CodeIcon, Settings2Icon } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
+import { Label } from '../ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 
 interface GeneratedData extends GenerateResumeOutput {
   jobDescriptionUsed: string;
+  // resumeMarkdown, jobTitleFromJD, companyNameFromJD are already part of GenerateResumeOutput
 }
 
+type ResumeTemplateType = "regular" | "compact" | "ultraCompact";
+
 export function NewApplicationTabContent() {
-  const { getAIEmploymentHistory, getAISkills, getAIProjects, backgroundInformation } = useUserProfileStore();
+  const { getAIEmploymentHistory, getAISkills, getAIProjects, backgroundInformation, getAIPersonalDetails, getAIEducationHistory } = useUserProfileStore();
   const { addSavedApplication } = useApplicationsStore();
 
   const [jobDescription, setJobDescription] = useState('');
@@ -28,11 +34,18 @@ export function NewApplicationTabContent() {
   const [jobTitleForSaving, setJobTitleForSaving] = useState('');
   const [companyNameForSaving, setCompanyNameForSaving] = useState('');
 
+  // New state for customization options
+  const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplateType>("regular");
+  const [accentColorInput, setAccentColorInput] = useState('#64B5F6'); // Default to soft blue
+  const [pageLimitInput, setPageLimitInput] = useState<number>(2);
+
 
   const resumeMutation = useMutation<GenerateResumeOutput, Error, GenerateResumeInput>({
     mutationFn: generateResume,
     onSuccess: (data) => {
       setGeneratedData({...data, jobDescriptionUsed: jobDescription});
+      setJobTitleForSaving(data.jobTitleFromJD || '');
+      setCompanyNameForSaving(data.companyNameFromJD || '');
       toast({ title: "Content Generated", description: "Resume, cover letter, and analysis are ready." });
     },
     onError: (error) => {
@@ -58,18 +71,25 @@ export function NewApplicationTabContent() {
       toast({ variant: "destructive", title: "Job Description Missing", description: "Please provide a job description." });
       return;
     }
-    const profileDataCheck = getAIEmploymentHistory().length > 0 || getAISkills().length > 0 || getAIProjects().length > 0 || backgroundInformation.trim() !== '';
+    const profileDataCheck = getAIEmploymentHistory().length > 0 || getAISkills().length > 0 || getAIProjects().length > 0 || backgroundInformation.trim() !== '' || getAIPersonalDetails().name || getAIEducationHistory().length > 0;
     if (!profileDataCheck) {
-        toast({ variant: "destructive", title: "Profile Incomplete", description: "Please fill out your profile (employment, skills, projects, or background info)." });
+        toast({ variant: "destructive", title: "Profile Incomplete", description: "Please fill out your profile (personal details, education, employment, skills, projects, or background info)." });
         return;
     }
 
+    const finalAccentColor = accentColorInput.trim(); // Pass with # if hex, AI flow handles it
+
     resumeMutation.mutate({
       jobDescription,
+      personalDetails: getAIPersonalDetails(),
+      educationHistory: getAIEducationHistory(),
       employmentHistory: getAIEmploymentHistory(),
-      skills: getAISkills(),
+      skills: getAISkills(), // Make sure this provides ALL skills for ATS
       projects: getAIProjects(),
       backgroundInformation,
+      resumeTemplate: selectedTemplate,
+      accentColor: finalAccentColor || undefined, 
+      pageLimit: pageLimitInput,
     });
   };
 
@@ -80,11 +100,11 @@ export function NewApplicationTabContent() {
     }
     coverLetterRefineMutation.mutate({
       jobDescription: generatedData.jobDescriptionUsed,
-      userBackground: backgroundInformation, // Or a more comprehensive background string
+      userBackground: backgroundInformation,
       companyInformation: companyInfo,
     });
   };
-  
+
   const handleSaveApplication = () => {
     if (!generatedData) {
       toast({ variant: "destructive", title: "Nothing to Save", description: "Please generate content first." });
@@ -99,12 +119,14 @@ export function NewApplicationTabContent() {
       companyName: companyNameForSaving,
       jobDescription: generatedData.jobDescriptionUsed,
       generatedResumeLatex: generatedData.resume,
+      generatedResumeMarkdown: generatedData.resumeMarkdown,
       generatedCoverLetter: generatedData.coverLetter,
       generatedSummary: generatedData.summary,
       matchAnalysis: generatedData.matchAnalysis,
+      resumeTemplateUsed: selectedTemplate,
+      accentColorUsed: accentColorInput.trim(),
+      pageLimitUsed: pageLimitInput,
     });
-    setJobTitleForSaving('');
-    setCompanyNameForSaving('');
   };
 
   const renderOutputSection = (title: string, content: string, icon: React.ReactNode) => (
@@ -142,6 +164,70 @@ export function NewApplicationTabContent() {
             className="w-full p-2 border rounded-md"
           />
         </CardContent>
+      </Card>
+
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center text-xl font-headline">
+            <Settings2Icon className="mr-2 h-6 w-6 text-primary" />
+            Resume Customization
+          </CardTitle>
+          <CardDescription>Choose your LaTeX resume template and customization options.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="resume-template">Resume Template</Label>
+              <Select value={selectedTemplate} onValueChange={(value: ResumeTemplateType) => setSelectedTemplate(value)}>
+                <SelectTrigger id="resume-template">
+                  <SelectValue placeholder="Select template" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="regular">Regular</SelectItem>
+                  <SelectItem value="compact">Compact</SelectItem>
+                  <SelectItem value="ultraCompact">Ultra-compact</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="md:col-span-1">
+              <Label htmlFor="accent-color-picker">Accent Color</Label>
+              <div className="flex items-center gap-2 mt-1">
+                 <Input
+                    id="accent-color-picker"
+                    type="color"
+                    value={accentColorInput.startsWith('#') ? accentColorInput : '#64B5F6'} // Ensure valid hex for picker
+                    onChange={(e) => setAccentColorInput(e.target.value)}
+                    className="h-10 w-12 p-1 rounded-md border"
+                  />
+                  <Input
+                    id="accent-color-text"
+                    type="text"
+                    placeholder="Or type name (e.g., Blue)"
+                    value={accentColorInput}
+                    onChange={(e) => setAccentColorInput(e.target.value)}
+                    className="flex-grow h-10"
+                  />
+              </div>
+               <p className="text-xs text-muted-foreground mt-1">
+                Default: Soft Blue ({`#64B5F6`}).
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="page-limit">Page Limit</Label>
+              <Input
+                id="page-limit"
+                type="number"
+                value={pageLimitInput}
+                onChange={(e) => setPageLimitInput(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                min="1"
+                max="5"
+                className="mt-1"
+              />
+            </div>
+          </div>
+        </CardContent>
         <CardFooter>
           <Button onClick={handleGenerate} disabled={resumeMutation.isPending} className="w-full sm:w-auto">
             {resumeMutation.isPending ? (
@@ -154,6 +240,7 @@ export function NewApplicationTabContent() {
         </CardFooter>
       </Card>
 
+
       {resumeMutation.isError && (
         <Alert variant="destructive">
           <AlertTitle>Error Generating Resume</AlertTitle>
@@ -165,8 +252,11 @@ export function NewApplicationTabContent() {
         <div className="space-y-6">
           {renderOutputSection("Generated Summary", generatedData.summary, <CheckCircleIcon className="mr-2 h-5 w-5 text-green-500" />)}
           {renderOutputSection("Match Analysis", generatedData.matchAnalysis, <BarChart3Icon className="mr-2 h-5 w-5 text-blue-500" />)}
-          {renderOutputSection("LaTeX Resume", generatedData.resume, <FileTextIcon className="mr-2 h-5 w-5 text-purple-500" />)}
-          
+
+          {/* {renderOutputSection("LaTeX Resume", generatedData.resume, <FileTextIcon className="mr-2 h-5 w-5 text-purple-500" />)} */}
+
+          {renderOutputSection("Markdown Resume", generatedData.resumeMarkdown, <CodeIcon className="mr-2 h-5 w-5 text-teal-500" />)}
+
           <Card className="shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center text-lg font-headline">
@@ -179,7 +269,7 @@ export function NewApplicationTabContent() {
                 <pre className="text-sm whitespace-pre-wrap break-all font-code">{generatedData.coverLetter}</pre>
               </ScrollArea>
               <div className="mt-4 space-y-2">
-                <Input 
+                <Input
                   placeholder="Enter company information for refinement (optional)"
                   value={companyInfo}
                   onChange={(e) => setCompanyInfo(e.target.value)}
@@ -204,15 +294,15 @@ export function NewApplicationTabContent() {
                     <SaveIcon className="mr-2 h-6 w-6 text-primary" />
                     Save Application
                 </CardTitle>
-                <CardDescription>Save this generated application package for future reference.</CardDescription>
+                <CardDescription>Save this generated application package for future reference. Job title and company name will be auto-filled if extracted by AI.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <Input 
+                <Input
                     placeholder="Job Title (e.g., Senior Software Engineer)"
                     value={jobTitleForSaving}
                     onChange={(e) => setJobTitleForSaving(e.target.value)}
                 />
-                <Input 
+                <Input
                     placeholder="Company Name (e.g., Google)"
                     value={companyNameForSaving}
                     onChange={(e) => setCompanyNameForSaving(e.target.value)}

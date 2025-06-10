@@ -9,6 +9,7 @@ import { UserCircle2Icon, FilePlus2Icon, ArchiveIcon, BotIcon, LogOutIcon, Loade
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginDialog } from "@/components/auth/LoginDialog";
 import { Button } from "@/components/ui/button";
+import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 export default function Home() {
   const { user, loading, logout } = useAuth();
@@ -35,9 +36,12 @@ export default function Home() {
               ResumeForge AI
             </h1>
           </div>
-          <Button variant="outline" size="sm" onClick={logout}>
-            <LogOutIcon className="mr-2 h-4 w-4" /> Logout
-          </Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggleButton />
+            <Button variant="outline" size="sm" onClick={logout}>
+              <LogOutIcon className="mr-2 h-4 w-4" /> Logout
+            </Button>
+          </div>
         </div>
       </header>
       <main className="p-4 sm:p-6 container mx-auto">

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, type ReactNode } from 'react';
+import React, { useState, type ReactNode, useImperativeHandle, forwardRef, type ForwardedRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,7 +9,7 @@ import { Edit2Icon, PlusCircleIcon, CheckIcon, Trash2Icon } from 'lucide-react';
 
 interface Item {
   id: string;
-  [key: string]: string | number | boolean | null;
+  [key: string]: any;
 }
 
 interface FieldConfig {
@@ -17,6 +17,10 @@ interface FieldConfig {
   label: string;
   type: 'text' | 'textarea';
   placeholder?: string;
+}
+
+export interface EditableListRef<T extends Item> {
+  initiateAddItem: (initialData?: Partial<Omit<T, 'id'>>) => void;
 }
 
 interface EditableListProps<T extends Item> {
@@ -29,19 +33,26 @@ interface EditableListProps<T extends Item> {
   renderItem?: (item: T, onEdit: () => void, onRemove: () => void) => ReactNode;
   itemToString: (item: T) => string;
   icon?: ReactNode;
+  customAddButton?: ReactNode;
+  transformInitialDataForForm?: (initialData: Partial<Omit<T, 'id'>>) => Partial<Omit<T, 'id'>>;
 }
 
-export function EditableList<T extends Item>({
-  title,
-  items,
-  fields,
-  onAddItem,
-  onUpdateItem,
-  onRemoveItem,
-  renderItem,
-  itemToString,
-  icon
-}: EditableListProps<T>) {
+const EditableListInner = <T extends Item>(
+  {
+    title,
+    items,
+    fields,
+    onAddItem,
+    onUpdateItem,
+    onRemoveItem,
+    renderItem,
+    itemToString,
+    icon,
+    customAddButton,
+    transformInitialDataForForm,
+  }: EditableListProps<T>,
+  ref: React.ForwardedRef<EditableListRef<T>>
+) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentItem, setCurrentItem] = useState<Partial<Omit<T, 'id'>>>({});
@@ -58,13 +69,20 @@ export function EditableList<T extends Item>({
   };
 
   const handleSave = () => {
+    if (Object.keys(currentItem).length === 0 && fields.some(f => !(f.name in currentItem))) {
+      resetForm();
+      return;
+    }
+
+    let itemToSave = { ...currentItem };
+
     if (editingId) {
-      onUpdateItem(editingId, currentItem);
+      onUpdateItem(editingId, itemToSave);
     } else {
-      const newItemData = { ...currentItem } as Omit<T, 'id'>;
+      const newItemData = { ...itemToSave } as Omit<T, 'id'>;
       fields.forEach(field => {
         if (!(field.name in newItemData)) {
-          (newItemData as Record<string, string>)[field.name] = '';
+          (newItemData as any)[field.name] = ''; 
         }
       });
       onAddItem(newItemData);
@@ -74,9 +92,27 @@ export function EditableList<T extends Item>({
 
   const handleEdit = (item: T) => {
     setEditingId(item.id);
-    setCurrentItem(item);
-    setIsAdding(false);
+    let dataForForm: Partial<Omit<T, 'id'>> = { ...item };
+    if (transformInitialDataForForm) {
+      dataForForm = transformInitialDataForForm(dataForForm);
+    }
+    setCurrentItem(dataForForm);
+    setIsAdding(false); 
   };
+
+  const handleInitiateAddItem = (initialData?: Partial<Omit<T, 'id'>>) => {
+    setIsAdding(true);
+    setEditingId(null);
+    let dataForForm = initialData || {};
+    if (transformInitialDataForForm && initialData) {
+      dataForForm = transformInitialDataForForm(initialData);
+    }
+    setCurrentItem(dataForForm);
+  };
+
+  useImperativeHandle(ref, () => ({
+    initiateAddItem: handleInitiateAddItem
+  }));
 
   const renderFormFields = () => (
     <div className="space-y-4 mb-4 p-4 border rounded-lg bg-card">
@@ -92,7 +128,7 @@ export function EditableList<T extends Item>({
               value={(currentItem as Record<string, string>)[field.name] || ''}
               onChange={handleInputChange}
               placeholder={field.placeholder || field.label}
-              rows={3}
+              rows={field.name.toLowerCase().includes('skills') ? 2 : (field.name.toLowerCase().includes('description') ? 4 : 3)}
               className="w-full"
             />
           ) : (
@@ -121,22 +157,26 @@ export function EditableList<T extends Item>({
         <CardTitle className="flex items-center text-xl font-headline">
           {icon && <span className="mr-2">{icon}</span>}
           {title}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="ml-auto"
-            onClick={() => { setIsAdding(true); setEditingId(null); setCurrentItem({}); }}
-            aria-label={`Add new ${title.slice(0, -1).toLowerCase()}`}
-          >
-            <PlusCircleIcon className="h-5 w-5 text-primary" />
-          </Button>
+          {customAddButton ? (
+            <div className="ml-auto">{customAddButton}</div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="ml-auto"
+              onClick={() => handleInitiateAddItem()}
+              aria-label={`Add new ${title.slice(0, -1).toLowerCase()}`}
+            >
+              <PlusCircleIcon className="h-5 w-5 text-primary" />
+            </Button>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {(isAdding && !editingId) && renderFormFields()}
         
         {items.length === 0 && !isAdding && (
-          <p className="text-muted-foreground">No {title.toLowerCase()} added yet. Click the &apos;+&apos; button to add one.</p>
+          <p className="text-muted-foreground">No {title.toLowerCase()} added yet. Click the '+' button or use AI to add one.</p>
         )}
 
         <ul className="space-y-3">
@@ -145,19 +185,20 @@ export function EditableList<T extends Item>({
               {editingId === item.id ? (
                 renderFormFields()
               ) : (
-                renderItem ? renderItem(item, () => handleEdit(item), () => onRemoveItem(item.id)) : (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-foreground flex-grow">{itemToString(item)}</span>
-                    <div className="space-x-1 flex-shrink-0">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(item)} aria-label="Edit item">
-                        <Edit2Icon className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => onRemoveItem(item.id)} aria-label="Remove item">
-                        <Trash2Icon className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                      </Button>
-                    </div>
+                renderItem ? renderItem(item, () => handleEdit(item), () => onRemoveItem(item.id)) :
+                <div className="flex items-start justify-between">
+                  <div className="flex-grow pr-2">
+                    <span className="text-sm text-foreground">{itemToString(item)}</span>
                   </div>
-                )
+                  <div className="space-x-1 flex-shrink-0">
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(item)} aria-label="Edit item">
+                      <Edit2Icon className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => onRemoveItem(item.id)} aria-label="Remove item">
+                      <Trash2Icon className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                    </Button>
+                  </div>
+                </div>
               )}
             </li>
           ))}
@@ -166,3 +207,5 @@ export function EditableList<T extends Item>({
     </Card>
   );
 }
+export const EditableList = forwardRef(EditableListInner) as <T extends Item>(props: EditableListProps<T> & { ref?: ForwardedRef<EditableListRef<T>> }) => React.ReactElement;
+
