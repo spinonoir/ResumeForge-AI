@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -57,4 +56,4 @@ export function CopyButton({ textToCopy, buttonSize = "icon", className }: CopyB
 
 // Helper to add cn if not already present
 import { cn as shadcnCn } from "@/lib/utils";
-const cn = (...inputs: any[]) => shadcnCn(inputs);
+const cn = (...inputs: any[]) => shadcnCn(...inputs);
