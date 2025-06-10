@@ -309,7 +309,7 @@ interface ApplicationsState {
   setUserId: (userId: string | null) => void;
   isLoadingApplications: boolean;
   savedApplications: SavedApplication[];
-  addSavedApplication: (appData: Omit<SavedApplication, 'id' | 'createdAt'>) => Promise<void>;
+  addSavedApplication: (appData: Omit<SavedApplication, 'id' | 'createdAt'>) => Promise<boolean>;
   removeSavedApplication: (id: string) => Promise<void>;
   loadSavedApplications: (userId: string) => Promise<void>;
   clearSavedApplications: () => void;
@@ -356,7 +356,7 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
     const currentUserId = get().userId;
     if (!currentUserId) {
       toast({ variant: "destructive", title: "Error", description: "You must be logged in to save an application." });
-      return;
+      return false;
     }
     const newApp = { ...appData, createdAt: new Date().toISOString() };
     const appsCollectionRef = collection(db, 'users', currentUserId, 'applications');
@@ -368,9 +368,11 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
         savedApplications: [appWithId, ...state.savedApplications].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
       }));
       toast({ title: "Application Saved", description: `${appData.jobTitle} application has been saved to cloud.` });
+      return true;
     } catch (error) {
       console.error("Error saving application to Firestore: ", error);
       toast({ variant: "destructive", title: "Save Failed", description: "Could not save application to cloud." });
+      return false;
     }
   },
   removeSavedApplication: async (id) => {

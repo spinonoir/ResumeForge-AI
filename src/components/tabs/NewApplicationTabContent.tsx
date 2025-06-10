@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -105,7 +104,7 @@ export function NewApplicationTabContent() {
     });
   };
 
-  const handleSaveApplication = () => {
+  const handleSaveApplication = async () => {
     if (!generatedData) {
       toast({ variant: "destructive", title: "Nothing to Save", description: "Please generate content first." });
       return;
@@ -114,7 +113,7 @@ export function NewApplicationTabContent() {
       toast({ variant: "destructive", title: "Missing Details", description: "Please provide a job title and company name for saving." });
       return;
     }
-    addSavedApplication({
+    const success = await addSavedApplication({
       jobTitle: jobTitleForSaving,
       companyName: companyNameForSaving,
       jobDescription: generatedData.jobDescriptionUsed,
@@ -127,6 +126,11 @@ export function NewApplicationTabContent() {
       accentColorUsed: accentColorInput.trim(),
       pageLimitUsed: pageLimitInput,
     });
+
+    if (success) {
+      setJobTitleForSaving('');
+      setCompanyNameForSaving('');
+    }
   };
 
   const renderOutputSection = (title: string, content: string, icon: React.ReactNode) => (
