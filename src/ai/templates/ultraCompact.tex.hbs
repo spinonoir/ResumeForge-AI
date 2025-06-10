@@ -5,7 +5,7 @@
 - Entry Styling: Highly condensed.
   - Education/Experience/Projects:
     \textbf{Degree/Job Title/Project Name} (\textit{Institution/Company/Association}) \hfill \textit{Dates} \\
-    {{#if gpa}}GPA: {{{gpa}}} {{/if}}{{#if accomplishments}}Accomplishments: {{{accomplishments}}} {{/if}}{{#if jobSummary}}Summary: {{{jobSummary}}}{{/if}}
+    \{{#if gpa}}GPA: \{{{gpa}}\} \{{/if}}\{{#if accomplishments}}Accomplishments: \{{{accomplishments}}\} \{{/if}}\{{#if jobSummary}}Summary: \{{{jobSummary}}\}\{{/if}}
     Descriptions should be extremely brief bullet points or even a run-in paragraph. Use \begin{itemize}[label=\textbullet, leftmargin=*, noitemsep, topsep=0pt, partopsep=0pt, parsep=0pt]
 - Skills Section: Comma-separated list or very tight columns.
 - General: Aggressively remove whitespace. Consider using `\\linespread{0.9}` if absolutely necessary. 
