@@ -8,8 +8,9 @@ import type {
 import { toast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
+import { v4 as uuidv4 } from 'uuid';
 
-const generateUniqueId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
+const generateUniqueId = uuidv4;
 
 const defaultPersonalDetails: PersonalDetails = {
   name: '',
