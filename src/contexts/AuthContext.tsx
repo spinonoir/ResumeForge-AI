@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
@@ -31,10 +30,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await loadUserProfile(currentUser.uid);
         await loadSavedApplications(currentUser.uid);
       } else {
-        setUserProfileUserId(null);
-        setApplicationsUserId(null);
         clearUserProfile();
         clearSavedApplications();
+        setUserProfileUserId(null);
+        setApplicationsUserId(null);
+
+        // Load dummy data for development if no user is logged in
+        if (process.env.NODE_ENV === 'development') {
+          loadUserProfile('dummy_dev_user_id_for_initial_load');
+        }
       }
     });
 
