@@ -26,7 +26,7 @@ export function SavedApplicationsTabContent() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">You haven't saved any applications yet. Create and save an application from the "New Application" tab.</p>
+          <p className="text-muted-foreground">You haven&apos;t saved any applications yet. Create and save an application from the &quot;New Application&quot; tab.</p>
         </CardContent>
       </Card>
     );

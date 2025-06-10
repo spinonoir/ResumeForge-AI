@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, type ReactNode, useImperativeHandle } from 'react';
@@ -6,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { XIcon, Edit2Icon, PlusCircleIcon, CheckIcon, Trash2Icon } from 'lucide-react';
+import { Edit2Icon, PlusCircleIcon, CheckIcon, Trash2Icon } from 'lucide-react';
 
 interface Item {
   id: string;
-  [key: string]: any;
+  [key: string]: string | number | boolean | null;
 }
 
 interface FieldConfig {
@@ -31,8 +30,8 @@ interface EditableListProps<T extends Item> {
   onAddItem: (item: Omit<T, 'id'>) => void;
   onUpdateItem: (id: string, item: Partial<Omit<T, 'id'>>) => void;
   onRemoveItem: (id: string) => void;
-  renderItem?: (item: T) => ReactNode;
-  itemToString: (item: T) => string; 
+  renderItem?: (item: T, onEdit: () => void, onRemove: () => void) => ReactNode;
+  itemToString: (item: T) => string;
   icon?: ReactNode;
   customAddButton?: ReactNode;
   transformInitialDataForForm?: (initialData: Partial<Omit<T, 'id'>>) => Partial<Omit<T, 'id'>>;
@@ -59,7 +58,8 @@ const EditableListInner = <T extends Item>(
   const [currentItem, setCurrentItem] = useState<Partial<Omit<T, 'id'>>>({});
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setCurrentItem({ ...currentItem, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setCurrentItem(prev => ({ ...prev, [name]: value }));
   };
 
   const resetForm = () => {
@@ -82,7 +82,7 @@ const EditableListInner = <T extends Item>(
       const newItemData = { ...itemToSave } as Omit<T, 'id'>;
       fields.forEach(field => {
         if (!(field.name in newItemData)) {
-          (newItemData as any)[field.name] = field.type === 'textarea' ? '' : ''; 
+          (newItemData as any)[field.name] = ''; 
         }
       });
       onAddItem(newItemData);
@@ -125,7 +125,7 @@ const EditableListInner = <T extends Item>(
             <Textarea
               id={field.name}
               name={field.name}
-              value={(currentItem as any)[field.name] || ''}
+              value={(currentItem as Record<string, string>)[field.name] || ''}
               onChange={handleInputChange}
               placeholder={field.placeholder || field.label}
               rows={field.name.toLowerCase().includes('skills') ? 2 : (field.name.toLowerCase().includes('description') ? 4 : 3)}
@@ -136,7 +136,7 @@ const EditableListInner = <T extends Item>(
               id={field.name}
               name={field.name}
               type="text"
-              value={(currentItem as any)[field.name] || ''}
+              value={(currentItem as Record<string, string>)[field.name] || ''}
               onChange={handleInputChange}
               placeholder={field.placeholder || field.label}
               className="w-full"
@@ -185,9 +185,10 @@ const EditableListInner = <T extends Item>(
               {editingId === item.id ? (
                 renderFormFields()
               ) : (
+                renderItem ? renderItem(item, () => handleEdit(item), () => onRemoveItem(item.id)) :
                 <div className="flex items-start justify-between">
                   <div className="flex-grow pr-2">
-                    {renderItem ? renderItem(item) : <span className="text-sm text-foreground">{itemToString(item)}</span>}
+                    <span className="text-sm text-foreground">{itemToString(item)}</span>
                   </div>
                   <div className="space-x-1 flex-shrink-0">
                     <Button variant="ghost" size="icon" onClick={() => handleEdit(item)} aria-label="Edit item">

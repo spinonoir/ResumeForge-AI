@@ -1,8 +1,8 @@
-
 "use client";
 
 import { useState } from 'react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 import { auth, googleProvider } from '@/lib/firebase'; // Import googleProvider
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,9 +38,9 @@ export function LoginDialog({ open }: LoginDialogProps) {
         toast({ title: "Signup Successful", description: "Welcome to ResumeForge AI!" });
       }
       // Dialog will close automatically due to auth state change in parent
-    } catch (err: any) {
+    } catch (err) {
       console.error(`${actionType} Error:`, err);
-      const errorMessage = err.code ? `${err.code}: ${err.message}` : err.message;
+      const errorMessage = err instanceof FirebaseError ? `${err.code}: ${err.message}` : 'An unknown error occurred';
       setError(errorMessage);
       toast({ variant: "destructive", title: "Authentication Failed", description: errorMessage });
     } finally {
@@ -64,27 +64,29 @@ export function LoginDialog({ open }: LoginDialogProps) {
       await signInWithPopup(auth, googleProvider);
       toast({ title: "Google Sign-In Successful", description: "Welcome to ResumeForge AI!" });
       // Dialog will close automatically
-    } catch (err: any) {
+    } catch (err) {
       console.error("Google Sign-In Error:", err); 
-      let errorMessage = err.message || "An unknown error occurred.";
+      let errorMessage = 'An unknown error occurred';
       let errorTitle = "Google Sign-In Failed";
 
-      if (err.code === 'auth/unauthorized-domain') {
-        errorTitle = "Unauthorized Domain";
-        errorMessage = `Your app's domain (${window.location.origin}) is not authorized for Google Sign-In. 
-        1. Open your browser's developer console (F12) to see the exact 'origin' and 'authDomain' logged.
-        2. In your Firebase project (resumeforge-ai-2quwm) > Authentication > Settings > Authorized domains, ensure the EXACT origin logged in the console (e.g., http://localhost:9002) is listed.
-        Changes may take a few minutes to apply. Firebase Error Code: ${err.code}`;
-      } else if (err.code === 'auth/popup-closed-by-user') {
-        errorMessage = "The sign-in popup was closed before authentication could complete. Please try again.";
-        errorTitle = "Sign-In Cancelled";
-      } else if (err.code === 'auth/cancelled-popup-request' || err.code === 'auth/popup-blocked') {
-        errorMessage = "The sign-in popup was cancelled or blocked by the browser. Please ensure popups are enabled for this site and try again.";
-        errorTitle = "Popup Issue";
-      } else if (err.code) {
-         errorMessage = `${err.code}: ${err.message}`;
+      if (err instanceof FirebaseError) {
+        if (err.code === 'auth/unauthorized-domain') {
+          errorTitle = "Unauthorized Domain";
+          errorMessage = `Your app's domain (${window.location.origin}) is not authorized for Google Sign-In. 
+          1. Open your browser's developer console (F12) to see the exact 'origin' and 'authDomain' logged.
+          2. In your Firebase project (resumeforge-ai-2quwm) > Authentication > Settings > Authorized domains, ensure the EXACT origin logged in the console (e.g., http://localhost:9002) is listed.
+          Changes may take a few minutes to apply. Firebase Error Code: ${err.code}`;
+        } else if (err.code === 'auth/popup-closed-by-user') {
+          errorMessage = "The sign-in popup was closed before authentication could complete. Please try again.";
+          errorTitle = "Sign-In Cancelled";
+        } else if (err.code === 'auth/cancelled-popup-request' || err.code === 'auth/popup-blocked') {
+          errorMessage = "The sign-in popup was cancelled or blocked by the browser. Please ensure popups are enabled for this site and try again.";
+          errorTitle = "Popup Issue";
+        } else {
+          errorMessage = `${err.code}: ${err.message}`;
+        }
       }
-      setError(errorMessage); // This sets the error for display beneath the Google button
+      setError(errorMessage);
       toast({ variant: "destructive", title: errorTitle, description: `Details: ${errorMessage.length > 150 ? errorMessage.substring(0,150) + '...' : errorMessage}. Check console for full error.`, duration: 10000 });
     } finally {
       setIsGoogleSubmitting(false);
