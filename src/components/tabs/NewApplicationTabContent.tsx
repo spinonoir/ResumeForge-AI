@@ -15,6 +15,9 @@ import { ScrollArea } from '../ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import { Label } from '../ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
+import { v4 as uuidv4 } from 'uuid';
+
+const generateUniqueId = uuidv4;
 
 interface GeneratedData extends GenerateResumeOutput {
   jobDescriptionUsed: string;
@@ -113,18 +116,32 @@ export function NewApplicationTabContent() {
       toast({ variant: "destructive", title: "Missing Details", description: "Please provide a job title and company name for saving." });
       return;
     }
+
+    const personalDetails = getAIPersonalDetails();
+    const lastName = personalDetails.name?.split(' ').pop() || 'user';
+    const date = new Date();
+    const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    
     const success = await addSavedApplication({
       jobTitle: jobTitleForSaving,
       companyName: companyNameForSaving,
       jobDescription: generatedData.jobDescriptionUsed,
-      generatedResumeLatex: generatedData.resume,
-      generatedResumeMarkdown: generatedData.resumeMarkdown,
       generatedCoverLetter: generatedData.coverLetter,
       generatedSummary: generatedData.summary,
       matchAnalysis: generatedData.matchAnalysis,
-      resumeTemplateUsed: selectedTemplate,
-      accentColorUsed: accentColorInput.trim(),
-      pageLimitUsed: pageLimitInput,
+      resumes: [
+        {
+          id: generateUniqueId(),
+          name: `${formattedDate}-${lastName}-${companyNameForSaving}-${selectedTemplate}-resume`.toLowerCase(),
+          createdAt: new Date().toISOString(),
+          templateUsed: selectedTemplate,
+          accentColorUsed: accentColorInput.trim() || '#64B5F6',
+          pageLimitUsed: pageLimitInput,
+          generatedResumeLatex: generatedData.resume,
+          generatedResumeMarkdown: generatedData.resumeMarkdown,
+          isStarred: true,
+        }
+      ]
     });
 
     if (success) {

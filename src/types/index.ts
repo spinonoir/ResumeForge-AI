@@ -1,4 +1,3 @@
-
 import type { EmploymentHistory as AIEmpHistory, Skills as AISkills, Projects as AIProjects } from '@/ai/flows/resume-generator';
 
 export type EmploymentEntry = {
@@ -31,21 +30,28 @@ export type EmploymentHistory = AIEmpHistory;
 export type Skills = AISkills;
 export type Projects = AIProjects;
 
+export interface Resume {
+  id: string;
+  name: string;
+  createdAt: string;
+  templateUsed: string;
+  accentColorUsed: string;
+  pageLimitUsed: number;
+  generatedResumeLatex: string;
+  generatedResumeMarkdown: string;
+  isStarred: boolean;
+}
 
 export interface SavedApplication {
   id: string;
   jobTitle: string;
   companyName: string;
   jobDescription: string;
-  generatedResumeLatex: string;
-  generatedResumeMarkdown: string;
+  resumes?: Resume[];
   generatedCoverLetter: string;
   generatedSummary: string;
   matchAnalysis: string;
   createdAt: string;
-  resumeTemplateUsed?: string;
-  accentColorUsed?: string;
-  pageLimitUsed?: number;
 }
 
 export interface SocialMediaLink {

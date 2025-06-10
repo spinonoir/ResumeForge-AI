@@ -3,11 +3,12 @@
 import { create } from 'zustand';
 import type {
   EmploymentHistory, Skills, Projects, SavedApplication,
-  EmploymentEntry, SkillEntry, ProjectEntry, PersonalDetails, EducationEntry, SocialMediaLink
+  EmploymentEntry, SkillEntry, ProjectEntry, PersonalDetails, EducationEntry, SocialMediaLink,
+  Resume
 } from '@/types';
 import { toast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 
 const generateUniqueId = uuidv4;
@@ -313,6 +314,10 @@ interface ApplicationsState {
   removeSavedApplication: (id: string) => Promise<void>;
   loadSavedApplications: (userId: string) => Promise<void>;
   clearSavedApplications: () => void;
+  addResumeToApplication: (applicationId: string, resumeData: Omit<Resume, 'id' | 'createdAt' | 'isStarred'>) => Promise<void>;
+  updateResumeInApplication: (applicationId: string, resumeId: string, resumeData: Partial<Omit<Resume, 'id'>>) => Promise<void>;
+  removeResumeFromApplication: (applicationId: string, resumeId: string) => Promise<void>;
+  starResume: (applicationId: string, resumeId: string) => Promise<void>;
 }
 
 export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
@@ -332,20 +337,32 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
     const apps: SavedApplication[] = [];
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
+      
+      let resumes: Resume[] = data.resumes || [];
+      if (!data.resumes && data.generatedResumeLatex) {
+          resumes = [{
+              id: generateUniqueId(),
+              name: 'Imported Resume',
+              createdAt: data.createdAt,
+              templateUsed: data.resumeTemplateUsed || 'classic',
+              accentColorUsed: data.accentColorUsed || '#000000',
+              pageLimitUsed: data.pageLimitUsed || 1,
+              generatedResumeLatex: data.generatedResumeLatex,
+              generatedResumeMarkdown: data.generatedResumeMarkdown || '',
+              isStarred: true,
+          }];
+      }
+
       apps.push({
         id: docSnap.id,
         jobTitle: data.jobTitle,
         companyName: data.companyName,
         jobDescription: data.jobDescription,
-        generatedResumeLatex: data.generatedResumeLatex,
-        generatedResumeMarkdown: data.generatedResumeMarkdown || '',
         generatedCoverLetter: data.generatedCoverLetter,
         generatedSummary: data.generatedSummary,
         matchAnalysis: data.matchAnalysis,
         createdAt: data.createdAt,
-        resumeTemplateUsed: data.resumeTemplateUsed,
-        accentColorUsed: data.accentColorUsed,
-        pageLimitUsed: data.pageLimitUsed,
+        resumes,
        } as SavedApplication);
     });
     set({ savedApplications: apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), isLoadingApplications: false });
@@ -392,21 +409,105 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
       console.error("Error removing application from Firestore: ", error);
       toast({ variant: "destructive", title: "Removal Failed", description: "Could not remove application from cloud." });
     }
-  }
+  },
+
+  addResumeToApplication: async (applicationId, resumeData) => {
+    const { userId, savedApplications } = get();
+    if (!userId) return;
+
+    const newResume: Resume = {
+      ...resumeData,
+      id: generateUniqueId(),
+      createdAt: new Date().toISOString(),
+      isStarred: false,
+    };
+
+    const updatedApplications = savedApplications.map(app => {
+      if (app.id === applicationId) {
+        const updatedResumes = [...(app.resumes || []), newResume];
+        return { ...app, resumes: updatedResumes };
+      }
+      return app;
+    });
+
+    set({ savedApplications: updatedApplications });
+
+    const appRef = doc(db, 'users', userId, 'applications', applicationId);
+    const appToUpdate = updatedApplications.find(app => app.id === applicationId);
+    if (appToUpdate) {
+      await updateDoc(appRef, { resumes: appToUpdate.resumes });
+    }
+  },
+
+  updateResumeInApplication: async (applicationId, resumeId, resumeData) => {
+    const { userId, savedApplications } = get();
+    if (!userId) return;
+
+    const updatedApplications = savedApplications.map(app => {
+      if (app.id === applicationId) {
+        const updatedResumes = (app.resumes || []).map(resume => {
+          if (resume.id === resumeId) {
+            return { ...resume, ...resumeData };
+          }
+          return resume;
+        });
+        return { ...app, resumes: updatedResumes };
+      }
+      return app;
+    });
+
+    set({ savedApplications: updatedApplications });
+
+    const appRef = doc(db, 'users', userId, 'applications', applicationId);
+    const appToUpdate = updatedApplications.find(app => app.id === applicationId);
+    if (appToUpdate) {
+      await updateDoc(appRef, { resumes: appToUpdate.resumes });
+    }
+  },
+
+  removeResumeFromApplication: async (applicationId, resumeId) => {
+    const { userId, savedApplications } = get();
+    if (!userId) return;
+
+    const updatedApplications = savedApplications.map(app => {
+      if (app.id === applicationId) {
+        const updatedResumes = (app.resumes || []).filter(resume => resume.id !== resumeId);
+        return { ...app, resumes: updatedResumes };
+      }
+      return app;
+    });
+
+    set({ savedApplications: updatedApplications });
+
+    const appRef = doc(db, 'users', userId, 'applications', applicationId);
+    const appToUpdate = updatedApplications.find(app => app.id === applicationId);
+    if (appToUpdate) {
+      await updateDoc(appRef, { resumes: appToUpdate.resumes });
+    }
+  },
+
+  starResume: async (applicationId, resumeId) => {
+    const { userId, savedApplications } = get();
+    if (!userId) return;
+
+    const updatedApplications = savedApplications.map(app => {
+      if (app.id === applicationId) {
+        const updatedResumes = (app.resumes || []).map(resume => ({
+          ...resume,
+          isStarred: resume.id === resumeId,
+        }));
+        return { ...app, resumes: updatedResumes };
+      }
+      return app;
+    });
+
+    set({ savedApplications: updatedApplications });
+
+    const appRef = doc(db, 'users', userId, 'applications', applicationId);
+    const appToUpdate = updatedApplications.find(app => app.id === applicationId);
+    if (appToUpdate) {
+      await updateDoc(appRef, { resumes: appToUpdate.resumes });
+    }
+  },
 }));
-
-if (process.env.NODE_ENV === 'development') {
-  const { userId, loadUserProfile, employmentHistory, skills, projects, backgroundInformation, personalDetails, educationHistory } = useUserProfileStore.getState();
-  const isProfileEffectivelyEmpty = !userId &&
-    employmentHistory.length === 0 &&
-    skills.length === 0 &&
-    projects.length === 0 &&
-    !backgroundInformation &&
-    (!personalDetails.name) &&
-    educationHistory.length === 0;
-
-  if (isProfileEffectivelyEmpty) {
-    loadUserProfile("dummy_dev_user_id_for_initial_load_if_needed");
-  }
-}
 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -11,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ArchiveIcon, EyeIcon, Trash2Icon, FileTextIcon, MailIcon, BarChart3Icon, CheckCircleIcon, CodeIcon, ClipboardListIcon as JobDescIcon, PaletteIcon, FileCogIcon, StickyNoteIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { CopyButton } from '@/components/CopyButton';
+import { ResumeManager } from '../applications/ResumeManager';
 
 export function SavedApplicationsTabContent() {
   const { savedApplications, removeSavedApplication } = useApplicationsStore();
@@ -46,36 +46,6 @@ export function SavedApplicationsTabContent() {
       </ScrollArea>
     </div>
   );
-
-  const renderCustomizationInfo = (app: SavedApplication) => {
-    const hasCustomization = app.resumeTemplateUsed || app.accentColorUsed || app.pageLimitUsed !== undefined;
-    if (!hasCustomization) {
-      return null;
-    }
-    return (
-      <div className="mt-3 mb-2 p-3 border rounded-md bg-secondary/20">
-        <h5 className="text-sm font-semibold mb-2 flex items-center">
-          <PaletteIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-          Resume Customization Used:
-        </h5>
-        <ul className="list-disc list-inside pl-2 text-xs space-y-1">
-          {app.resumeTemplateUsed && <li>Template: <span className="font-medium text-foreground">{app.resumeTemplateUsed}</span></li>}
-          {app.accentColorUsed && (
-            <li className="flex items-center">
-              Accent Color:
-              <span
-                className="inline-block w-4 h-4 rounded-sm ml-1.5 mr-1 border"
-                style={{ backgroundColor: app.accentColorUsed }}
-              />
-              <span className="font-medium text-foreground">{app.accentColorUsed}</span>
-            </li>
-          )}
-          {app.pageLimitUsed !== undefined && <li>Page Limit: <span className="font-medium text-foreground">{app.pageLimitUsed}</span></li>}
-        </ul>
-      </div>
-    );
-  };
-
 
   return (
     <div className="space-y-6">
@@ -114,7 +84,6 @@ export function SavedApplicationsTabContent() {
                            <DialogDescription>
                              Saved on: {selectedApp && format(new Date(selectedApp.createdAt), "MMMM d, yyyy 'at' h:mm a")}
                            </DialogDescription>
-                           {selectedApp && renderCustomizationInfo(selectedApp)}
                          </DialogHeader>
                          {selectedApp && (
                             <ScrollArea className="flex-grow pr-6 -mr-6">
@@ -122,9 +91,10 @@ export function SavedApplicationsTabContent() {
                                   {renderDetailSection("Job Description", selectedApp.jobDescription, <JobDescIcon className="mr-2 h-4 w-4 text-gray-500" />)}
                                   {renderDetailSection("Summary", selectedApp.generatedSummary, <CheckCircleIcon className="mr-2 h-4 w-4 text-green-500" />)}
                                   {renderDetailSection("Match Analysis", selectedApp.matchAnalysis, <BarChart3Icon className="mr-2 h-4 w-4 text-blue-500" />)}
-                                  {/* {renderDetailSection("LaTeX Resume", selectedApp.generatedResumeLatex, <FileTextIcon className="mr-2 h-4 w-4 text-purple-500" />)} */}
-                                  {renderDetailSection("Markdown Resume", selectedApp.generatedResumeMarkdown, <CodeIcon className="mr-2 h-4 w-4 text-teal-500" />)}
                                   {renderDetailSection("Cover Letter", selectedApp.generatedCoverLetter, <MailIcon className="mr-2 h-4 w-4 text-orange-500" />)}
+                                </div>
+                                <div className="mt-4">
+                                  <ResumeManager application={selectedApp} />
                                 </div>
                             </ScrollArea>
                          )}
