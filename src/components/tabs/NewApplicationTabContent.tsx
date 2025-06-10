@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useUserProfileStore, useApplicationsStore } from '@/lib/store';
 import { generateResume, type GenerateResumeInput, type GenerateResumeOutput } from '@/ai/flows/resume-generator';
