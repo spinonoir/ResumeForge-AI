@@ -1,0 +1,12 @@
+% --- Regular Template ---
+- Document Class: \documentclass[11pt]{article}
+- Section Titles: Use \section*{\color{AccentColor}\Large Section Title}. Add \vspace{-2mm} after section title and \vspace{-3mm} before list environments for slightly tighter default spacing.
+- Entry Styling:
+  - Education/Experience/Projects:
+    \textbf{Degree/Job Title/Project Name} \hfill \textit{Dates} \\
+    \textit{Institution/Company/Association} \\
+    {{#if gpa}}GPA: {{{gpa}}} \\{{/if}}
+    {{#if accomplishments}}Accomplishments: {{{accomplishments}}} \\{{/if}}
+    {{#if jobSummary}}Summary: {{{jobSummary}}} \\{{/if}}
+    Use \begin{itemize}[leftmargin=*, noitemsep, topsep=0pt, partopsep=0pt] for descriptions/responsibilities. \item ...
+- Skills Section: List key skills, perhaps grouped by category if appropriate. 

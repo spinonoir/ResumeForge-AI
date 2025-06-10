@@ -1,4 +1,3 @@
-
 // src/ai/flows/resume-generator.ts
 'use server';
 
@@ -12,6 +11,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import fs from 'fs/promises';
+import path from 'path';
 
 // Define schemas for employment history, skills, projects, personal details, and education.
 const EmploymentHistorySchema = z.array(z.object({
@@ -76,7 +77,9 @@ const GenerateResumeInputSchema = z.object({
   projects: ProjectsSchema.describe('The user\'s projects.'),
   resumeTemplate: z.enum(['regular', 'compact', 'ultraCompact']).default('regular').describe('The LaTeX template style for the resume. "regular" is standard, "compact" uses tighter spacing, "ultraCompact" is very space-efficient.'),
   accentColor: z.string().optional().describe('User-defined accent color for the resume. Can be a hex code (e.g., "FF5733" without #) or a LaTeX named color (e.g., "RoyalBlue"). If hex, use with \\definecolor{AccentColor}{HTML}{HEX_CODE}. If named, try to use directly or define. If not provided, use black or a default dark color.'),
+  isAccentColorHex: z.boolean().optional().describe('INTERNAL USE: A flag to indicate if the accentColor is a hex value. This is set programmatically.'),
   pageLimit: z.number().min(1).max(5).default(2).describe('The desired maximum number of pages for the resume. Attempt to fit content within this limit, especially for compact templates.'),
+  templateOverride: z.string().optional().describe('Allow overriding the template with a raw string. For testing or dynamic purposes.'),
 });
 export type GenerateResumeInput = z.infer<typeof GenerateResumeInputSchema>;
 
@@ -106,7 +109,7 @@ const resumePrompt = ai.definePrompt({
     schema: GenerateResumeOutputSchema,
   },
   prompt: `You are a resume expert and LaTeX specialist. Based on the provided job description, user information, and customization options, create the following outputs:
-1. A resume in LaTeX format, tailored to the '{{{resumeTemplate}}}' style, using '{{{accentColor}}}' as the accent color, and aiming for a '{{{pageLimit}}}' page limit.
+1. A resume in LaTeX format, tailored to the provided template, using '{{{accentColor}}}' as the accent color, and aiming for a '{{{pageLimit}}}' page limit.
 2. A resume in Markdown format.
 3. A summary blurb.
 4. A cover letter.
@@ -183,7 +186,7 @@ General LaTeX Setup (Apply this to all templates):
 - Margins: Aim for ~0.75in (e.g., \\geometry{left=0.75in, right=0.75in, top=0.75in, bottom=0.75in}). For more compact templates, you can reduce margins slightly if needed to meet page limits, but not less than 0.5in.
 - Accent Color Definition:
   {{#if accentColor}}
-    {{#if (containsChars accentColor "0123456789ABCDEFabcdef" 6)}}
+    {{#if isAccentColorHex}}
       \\definecolor{AccentColor}{HTML}{{{accentColor}}}
     {{else}}
       \\colorlet{AccentColor}{{{accentColor}}} % Assumes it's a valid LaTeX named color
@@ -199,58 +202,12 @@ General LaTeX Setup (Apply this to all templates):
   \\mbox{} % Ensure it's not empty if it starts a new page
   \\vfill % Push to bottom of page
   \\begin{center} % Center it, though it's invisible
-  \\texttt{\\textcolor{white}{\\tiny ATS SKILLS: {{#each skills}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}}}
+  \\texttt{\\textcolor{white}{\\tiny ATS SKILLS: {{#each skills}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}} }}
   \\end{center}
   Ensure this text does NOT add to the visible page count if the resume content naturally fits within the '{{{pageLimit}}}'. This is for machine parsing only.
 
 Template-Specific Guidelines:
-
-{{#eq resumeTemplate "regular"}}
-  % --- Regular Template ---
-  - Document Class: \\documentclass[11pt]{article}
-  - Section Titles: Use \\section*{\\color{AccentColor}\\Large Section Title}. Add \\vspace{-2mm} after section title and \\vspace{-3mm} before list environments for slightly tighter default spacing.
-  - Entry Styling:
-    - Education/Experience/Projects:
-      \\textbf{Degree/Job Title/Project Name} \\hfill \\textit{Dates} \\\\
-      \\textit{Institution/Company/Association} \\\\
-      {{#if gpa}}GPA: {{{gpa}}} \\\\{{/if}}
-      {{#if accomplishments}}Accomplishments: {{{accomplishments}}} \\\\{{/if}}
-      {{#if jobSummary}}Summary: {{{jobSummary}}} \\\\{{/if}}
-      Use \\begin{itemize}[leftmargin=*, noitemsep, topsep=0pt, partopsep=0pt] for descriptions/responsibilities. \\item ...
-  - Skills Section: List key skills, perhaps grouped by category if appropriate.
-{{/eq}}
-
-{{#eq resumeTemplate "compact"}}
-  % --- Compact Template ---
-  - Document Class: \\documentclass[10pt]{article}
-  - Margins: Consider \\geometry{left=0.6in, right=0.6in, top=0.6in, bottom=0.6in} if needed for page limit.
-  - Section Titles: Use \\section*{\\color{AccentColor}\\large Section Title}. Use \\titlespacing*{\\section}{0pt}{0.5ex plus 0.1ex minus .2ex}{0.3ex plus .2ex}.
-  - Entry Styling:
-    - Education/Experience/Projects:
-      \\textbf{Degree/Job Title/Project Name} \\hfill \\textit{Dates} \\\\
-      \\textit{Institution/Company/Association}
-      {{#if gpa}} | GPA: {{{gpa}}}{{/if}}
-      {{#if jobSummary}} | Summary: {{{jobSummary}}}{{/if}}
-      \\\\
-      {{#if accomplishments}}Accomplishments: {{{accomplishments}}} \\\\{{/if}}
-      Use \\begin{itemize}[leftmargin=*, noitemsep, topsep=0pt, partopsep=0pt, parsep=0pt] for very concise descriptions.
-  - Skills Section: Very concise list of skills.
-  - General: Minimize vertical whitespace. Use \\vspace{-1mm} or \\vspace{-2mm} judiciously.
-{{/eq}}
-
-{{#eq resumeTemplate "ultraCompact"}}
-  % --- Ultra-Compact Template ---
-  - Document Class: \\documentclass[9pt]{article}
-  - Margins: Consider \\geometry{left=0.5in, right=0.5in, top=0.5in, bottom=0.5in}.
-  - Section Titles: Use \\subsection*{\\color{AccentColor}Section Title}. Very minimal spacing around titles. \\titlespacing*{\\subsection}{0pt}{0.2ex}{0.1ex}.
-  - Entry Styling: Highly condensed.
-    - Education/Experience/Projects:
-      \\textbf{Degree/Job Title/Project Name} (\\textit{Institution/Company/Association}) \\hfill \\textit{Dates} \\\\
-      {{#if gpa}}GPA: {{{gpa}}} {{/if}}{{#if accomplishments}}Accomplishments: {{{accomplishments}}} {{/if}}{{#if jobSummary}}Summary: {{{jobSummary}}}{{/if}}
-      Descriptions should be extremely brief bullet points or even a run-in paragraph. Use \\begin{itemize}[label=\\textbullet, leftmargin=*, noitemsep, topsep=0pt, partopsep=0pt, parsep=0pt]
-  - Skills Section: Comma-separated list or very tight columns.
-  - General: Aggressively remove whitespace. Consider using \\\`\\\\linespread{0.9}\\\`\` if absolutely necessary.
-{{/eq}}
+{{{templateOverride}}}
 
 Make sure the generated LaTeX is a single, complete, and compilable document.
 The entire output must be in the specified JSON format.
@@ -275,20 +232,36 @@ const generateResumeFlow = ai.defineFlow(
     if (processedAccentColor && processedAccentColor.startsWith('#')) {
       processedAccentColor = processedAccentColor.substring(1);
     }
+    
+    // Load the selected LaTeX template
+    const templateName = input.resumeTemplate;
+    const templatePath = path.join(process.cwd(), 'src', 'ai', 'templates', `${templateName}.tex.hbs`);
+    const templateContent = await fs.readFile(templatePath, 'utf-8');
+
+    const isAccentColorHex = !!processedAccentColor && /^[0-9A-Fa-f]{6}$/i.test(processedAccentColor);
 
     const flowInput = {
       ...input,
       accentColor: processedAccentColor,
-      // This is a trick to make the 'containsChars' logic available in the prompt context
-      // The actual check will be done in the prompt like {{#if (containsChars accentColor "0123456789ABCDEFabcdef" 6)}}
-      // The AI should interpret this based on the example.
+      templateOverride: templateContent,
+      isAccentColorHex,
     };
 
-    const {output} = await resumePrompt(flowInput);
-    return output!;
+    try {
+      const {output} = await resumePrompt(flowInput);
+      return output!;
+    } catch (e: any) {
+      console.error(
+        `[Resume Generation Error] Failed to render prompt template for resume generation.`,
+        'Input:',
+        input,
+        'Error:',
+        e
+      );
+      throw new Error(
+        `Template rendering failed. Please check the flow logic and template syntax. Original error: ${e.message}`
+      );
+    }
   }
 );
-// Removed the ai.registry.test.addHandlebarsHelper call as it was causing errors
-// and the AI is expected to interpret the logic from the prompt context.
-// The containsChars logic is illustrative for the AI within the prompt.
 
