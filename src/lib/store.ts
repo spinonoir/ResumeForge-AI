@@ -9,6 +9,8 @@ import { toast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
 
+const generateUniqueId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
+
 const defaultPersonalDetails: PersonalDetails = {
   name: '',
   email: '',
@@ -69,7 +71,7 @@ const saveProfileToFirestore = async (userId: string, profileData: Partial<Pick<
     dataToSave.personalDetails = {
       ...defaultPersonalDetails,
       ...profileData.personalDetails,
-      socialMediaLinks: (profileData.personalDetails.socialMediaLinks || []).map(sm => ({ platform: sm.platform, url: sm.url, id: sm.id || Date.now().toString()})),
+      socialMediaLinks: (profileData.personalDetails.socialMediaLinks || []).map(sm => ({ platform: sm.platform, url: sm.url, id: sm.id || generateUniqueId()})),
     };
   }
   if (profileData.employmentHistory !== undefined) {
@@ -129,30 +131,30 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         personalDetails: {
             ...defaultPersonalDetails,
             ...(data.personalDetails || {}),
-            socialMediaLinks: (data.personalDetails?.socialMediaLinks || []).map((sm: any) => ({...sm, id: sm.id || Date.now().toString() + Math.random()}))
+            socialMediaLinks: (data.personalDetails?.socialMediaLinks || []).map((sm: any) => ({...sm, id: sm.id || generateUniqueId()}))
         },
         employmentHistory: (data.employmentHistory || []).map((eh: any) => ({
             ...eh,
-            id: eh.id || Date.now().toString() + Math.random(),
+            id: eh.id || generateUniqueId(),
             skillsDemonstrated: eh.skillsDemonstrated || [],
             jobSummary: eh.jobSummary || '',
             description: eh.description || '',
         })),
         skills: (data.skills || []).map((s: any) => ({
-            id: s.id || Date.now().toString() + Math.random(),
+            id: s.id || generateUniqueId(),
             name: s.name,
             category: s.category === null ? undefined : s.category
         })),
         projects: (data.projects || []).map((p: any) => ({
             ...p,
-            id: p.id || Date.now().toString() + Math.random(),
+            id: p.id || generateUniqueId(),
             skillsUsed: p.skillsUsed || [],
             link: p.link === null ? undefined : p.link,
             roleDescription: p.roleDescription || '',
         })),
         educationHistory: (data.educationHistory || []).map((edu: any) => ({
             ...edu,
-            id: edu.id || Date.now().toString() + Math.random(),
+            id: edu.id || generateUniqueId(),
             fieldOfStudy: edu.fieldOfStudy || '',
             gpa: edu.gpa || '',
             accomplishments: edu.accomplishments || '',
@@ -204,7 +206,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
   },
 
   addEmploymentEntry: async (entry) => {
-    const newEntry: EmploymentEntry = { ...entry, id: Date.now().toString(), skillsDemonstrated: entry.skillsDemonstrated || [], description: entry.description || '' };
+    const newEntry: EmploymentEntry = { ...entry, id: generateUniqueId(), skillsDemonstrated: entry.skillsDemonstrated || [], description: entry.description || '' };
     set((state) => ({ employmentHistory: [...state.employmentHistory, newEntry] }));
     await saveProfileToFirestore(get().userId!, { employmentHistory: get().employmentHistory });
   },
@@ -226,7 +228,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
     if (!trimmedName) return;
 
     const newSkill: SkillEntry = {
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 15),
+      id: generateUniqueId(),
       name: trimmedName,
       category: skillData.category?.trim() || undefined
     };
@@ -243,7 +245,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
   },
 
   addProjectEntry: async (entry) => {
-    const newEntry: ProjectEntry = { ...entry, id: Date.now().toString(), skillsUsed: entry.skillsUsed || [], roleDescription: entry.roleDescription || '' };
+    const newEntry: ProjectEntry = { ...entry, id: generateUniqueId(), skillsUsed: entry.skillsUsed || [], roleDescription: entry.roleDescription || '' };
     set((state) => ({ projects: [...state.projects, newEntry] }));
     await saveProfileToFirestore(get().userId!, { projects: get().projects });
   },
@@ -261,7 +263,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
   },
 
   addEducationEntry: async (entry) => {
-    const newEntry: EducationEntry = { ...entry, id: Date.now().toString(), fieldOfStudy: entry.fieldOfStudy || '', gpa: entry.gpa || '', accomplishments: entry.accomplishments || '' };
+    const newEntry: EducationEntry = { ...entry, id: generateUniqueId(), fieldOfStudy: entry.fieldOfStudy || '', gpa: entry.gpa || '', accomplishments: entry.accomplishments || '' };
     set((state) => ({ educationHistory: [...state.educationHistory, newEntry] }));
     await saveProfileToFirestore(get().userId!, { educationHistory: get().educationHistory });
   },
