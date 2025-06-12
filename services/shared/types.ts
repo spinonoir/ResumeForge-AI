@@ -1,7 +1,23 @@
 // API contract types for communication between Next.js and Python service
+// These types are the canonical source of truth for the API contracts.
 
-// Import the AI types from the Next.js types (for consistency)
-import type { EmploymentHistory, Skills, Projects } from '../../src/types/index';
+export type EmploymentHistory = Array<{
+  title: string;
+  company: string;
+  dates: string;
+  description: string;
+}>;
+
+export type Skills = string[];
+
+export type Projects = Array<{
+  name: string;
+  association: string;
+  dates: string;
+  skillsUsed: string[];
+  roleDescription: string;
+  link?: string;
+}>;
 
 export interface ScoreRequest {
   resumeText: string;

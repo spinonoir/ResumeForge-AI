@@ -77,21 +77,4 @@ export interface EducationEntry {
   accomplishments?: string;
 }
 
-// AI-related types - now defined locally since AI flows moved to Python service
-export type EmploymentHistory = Array<{
-  title: string;
-  company: string;
-  dates: string;
-  description: string;
-}>;
-
-export type Skills = string[];
-
-export type Projects = Array<{
-  name: string;
-  association: string;
-  dates: string;
-  skillsUsed: string[];
-  roleDescription: string;
-  link?: string;
-}>;
+// AI-related types are now defined in services/shared/types.ts
