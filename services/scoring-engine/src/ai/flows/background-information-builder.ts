@@ -1,7 +1,7 @@
 // This is an AI-powered chat interface that helps users articulate their background information.
 'use server';
 
-import {ai} from '@/ai/genkit';
+import {ai} from '@services/scoring-engine/src/ai/genkit';
 import {z} from 'genkit';
 
 const BackgroundInformationInputSchema = z.object({

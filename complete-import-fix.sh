@@ -1,3 +1,19 @@
+#!/bin/bash
+
+echo "🔧 Complete AI import fix..."
+
+# More aggressive approach - remove ALL AI imports from ALL files
+echo "📋 Removing all remaining AI imports..."
+
+# Find all TypeScript files and remove any lines containing AI imports
+find src/ -name "*.tsx" -o -name "*.ts" | xargs sed -i.bak '/import.*@\/ai\/flows/d'
+
+echo "✅ Removed all AI imports"
+
+# Now let's specifically fix the ProfileTabContent.tsx file that has multiple AI imports
+echo "🔧 Fixing ProfileTabContent.tsx specifically..."
+
+cat > temp-profile-fix.tsx << 'EOF'
 "use client";
 
 import React, { useState } from 'react';
@@ -10,12 +26,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { scoringService } from '@/lib/scoring-service';
-import { useMutation } from '@tanstack/react-query';
-import { parseEmploymentText, type ParseEmploymentTextInput, type ParseEmploymentTextOutput } from '@services/scoring-engine/src/ai/flows/employment-text-parser-flow';
-import { parseAndCategorizeSkills, type ParseSkillsInput, type ParseSkillsOutput } from '@services/scoring-engine/src/ai/flows/skill-parser-categorizer-flow';
-import { parseProjectText, type ParseProjectTextInput, type ParseProjectTextOutput } from '@services/scoring-engine/src/ai/flows/project-text-parser-flow';
-import { toast } from '@/hooks/use-toast';
-import { Label } from '../ui/label';
 
 const employmentFields = [
   { name: 'title', label: 'Job Title', type: 'text' as const, placeholder: 'e.g., Software Engineer' },
@@ -44,7 +54,7 @@ export function ProfileTabContent() {
 
   const handleAddSkill = () => {
     if (newSkill.trim()) {
-      addSkill({ name: newSkill.trim() });
+      addSkill(newSkill.trim());
       setNewSkill('');
     }
   };
@@ -161,3 +171,184 @@ export function ProfileTabContent() {
     </div>
   );
 }
+EOF
+
+# Replace the ProfileTabContent.tsx with our fixed version
+cp temp-profile-fix.tsx src/components/tabs/ProfileTabContent.tsx
+rm temp-profile-fix.tsx
+
+echo "✅ Fixed ProfileTabContent.tsx"
+
+# Now update the scoring service to include all the missing functions
+echo "🔧 Updating scoring service with all AI functions..."
+
+cat > src/lib/scoring-service.ts << 'EOF'
+import type { 
+  ScoreRequest, 
+  ScoreResponse, 
+  GenerateResumeRequest,
+  GenerateResumeResponse,
+  GenerateCoverLetterRequest,
+  GenerateCoverLetterResponse
+} from '../../services/shared/types';
+
+export class ScoringService {
+  private baseUrl: string;
+
+  constructor() {
+    this.baseUrl = process.env.NEXT_PUBLIC_SCORING_SERVICE_URL || 'http://localhost:8001';
+  }
+
+  async scoreResume(request: ScoreRequest): Promise<ScoreResponse> {
+    const response = await fetch(`${this.baseUrl}/score-resume`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Scoring service error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async generateResume(request: GenerateResumeRequest): Promise<GenerateResumeResponse> {
+    const response = await fetch(`${this.baseUrl}/generate-resume`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Resume generation error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async generateCoverLetter(request: GenerateCoverLetterRequest): Promise<GenerateCoverLetterResponse> {
+    const response = await fetch(`${this.baseUrl}/generate-cover-letter`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Cover letter generation error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async buildBackgroundInformation(input: any): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/build-background`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Background building error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async parseEmploymentText(input: any): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/parse-employment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Employment parsing error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async parseAndCategorizeSkills(input: any): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/parse-skills`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Skills parsing error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async parseProjectText(input: any): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/parse-project`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Project parsing error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/health`);
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+export const scoringService = new ScoringService();
+
+// Export individual functions for backwards compatibility
+export const generateResume = (input: any) => scoringService.generateResume(input);
+export const generateCoverLetter = (input: any) => scoringService.generateCoverLetter(input);
+export const buildBackgroundInformation = (input: any) => scoringService.buildBackgroundInformation(input);
+export const parseEmploymentText = (input: any) => scoringService.parseEmploymentText(input);
+export const parseAndCategorizeSkills = (input: any) => scoringService.parseAndCategorizeSkills(input);
+export const parseProjectText = (input: any) => scoringService.parseProjectText(input);
+
+// For backwards compatibility with any existing function names
+export const refineCoverLetterFlow = generateCoverLetter;
+EOF
+
+echo "✅ Updated scoring service"
+
+# Clean up all backup files
+echo "🧹 Cleaning up backup files..."
+find src/ -name "*.bak" -delete
+
+# Test build
+echo "🧪 Testing build..."
+if npm run build > final-build-test.log 2>&1; then
+    echo "✅ Build successful!"
+    rm final-build-test.log
+else
+    echo "❌ Build still failing. Checking errors..."
+    echo ""
+    grep "Module not found\|Cannot find" final-build-test.log | head -10
+    echo ""
+    echo "Full log in final-build-test.log"
+fi
+
+echo ""
+echo "✅ Complete import fix finished!"
+echo ""
+echo "Summary of changes:"
+echo "- 🔧 Removed ALL AI imports from ALL files"
+echo "- 📄 Completely rewrote ProfileTabContent.tsx to remove AI dependencies"
+echo "- 📦 Enhanced scoring service with all missing AI functions"
+echo "- 🧹 Cleaned up backup files"
+echo ""
+echo "Next steps:"
+echo "1. If build passes: Ready for Issue #1 (Python FastAPI service)!"
+echo "2. If build fails: Check final-build-test.log for remaining issues"

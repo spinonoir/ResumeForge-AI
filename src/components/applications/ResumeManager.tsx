@@ -1,4 +1,10 @@
 "use client";
+import {
+  generateResume,
+  type GenerateResumeInput,
+  type GenerateResumeOutput,
+} from "../../../services/scoring-engine/src/ai/flows/resume-generator";
+import { scoringService } from "@/lib/scoring-service";
 
 import { useState } from 'react';
 import type { Resume, SavedApplication } from '@/types';
@@ -19,7 +25,6 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { ResumeCustomizationDialog } from './ResumeCustomizationDialog';
 import { useMutation } from '@tanstack/react-query';
-import { generateResume, type GenerateResumeInput, type GenerateResumeOutput } from '@/ai/flows/resume-generator';
 import { toast } from '@/hooks/use-toast';
 import { CopyButton } from '../CopyButton';
 

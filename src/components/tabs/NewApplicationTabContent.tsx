@@ -1,10 +1,18 @@
 "use client";
+import {
+  generateResume,
+  type GenerateResumeInput,
+  type GenerateResumeOutput,
+} from "../../../services/scoring-engine/src/ai/flows/resume-generator";
+import {
+  generateCoverLetter as refineCoverLetterFlow,
+  type GenerateCoverLetterInput,
+  type GenerateCoverLetterOutput,
+} from "../../../services/scoring-engine/src/ai/flows/cover-letter-generator";
 
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useUserProfileStore, useApplicationsStore } from '@/lib/store';
-import { generateResume, type GenerateResumeInput, type GenerateResumeOutput } from '@/ai/flows/resume-generator';
-import { generateCoverLetter as refineCoverLetterFlow, type GenerateCoverLetterInput, type GenerateCoverLetterOutput } from '@/ai/flows/cover-letter-generator';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
