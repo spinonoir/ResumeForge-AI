@@ -9,11 +9,16 @@ import { BriefcaseIcon, LightbulbIcon, SparklesIcon, UserCircle2Icon } from 'luc
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { scoringService } from '@/lib/scoring-service';
+import { parseEmploymentText, parseAndCategorizeSkills, parseProjectText } from '@/lib/scoring-service';
 import { useMutation } from '@tanstack/react-query';
-import { parseEmploymentText, type ParseEmploymentTextInput, type ParseEmploymentTextOutput } from '@services/scoring-engine/src/ai/flows/employment-text-parser-flow';
-import { parseAndCategorizeSkills, type ParseSkillsInput, type ParseSkillsOutput } from '@services/scoring-engine/src/ai/flows/skill-parser-categorizer-flow';
-import { parseProjectText, type ParseProjectTextInput, type ParseProjectTextOutput } from '@services/scoring-engine/src/ai/flows/project-text-parser-flow';
+import type { 
+  ParseEmploymentTextInput, 
+  ParseEmploymentTextOutput,
+  ParseSkillsInput,
+  ParseSkillsOutput,
+  ParseProjectTextInput,
+  ParseProjectTextOutput
+} from '../../../services/shared/types';
 import { toast } from '@/hooks/use-toast';
 import { Label } from '../ui/label';
 

@@ -1,10 +1,9 @@
 "use client";
-import {
-  generateResume,
-  type GenerateResumeInput,
-  type GenerateResumeOutput,
-} from "../../../services/scoring-engine/src/ai/flows/resume-generator";
-import { scoringService } from "@/lib/scoring-service";
+import { generateResume } from "@/lib/scoring-service";
+import type { 
+  GenerateResumeRequest as GenerateResumeInput,
+  GenerateResumeResponse as GenerateResumeOutput
+} from "../../../services/shared/types";
 
 import { useState } from 'react';
 import type { Resume, SavedApplication } from '@/types';
@@ -54,12 +53,12 @@ export function ResumeManager({ application }: ResumeManagerProps) {
       const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
       const newResume: Omit<Resume, 'id' | 'createdAt' | 'isStarred'> = {
-        name: `${formattedDate}-${lastName}-${companyName}-${variables.resumeTemplate}-resume`.toLowerCase(),
-        templateUsed: variables.resumeTemplate,
+        name: `${formattedDate}-${lastName}-${companyName}-${variables.resumeTemplate || 'regular'}-resume`.toLowerCase(),
+        templateUsed: variables.resumeTemplate || 'regular',
         accentColorUsed: variables.accentColor || '#000000',
         pageLimitUsed: variables.pageLimit || 1,
         generatedResumeLatex: data.resume,
-        generatedResumeMarkdown: data.resumeMarkdown,
+        generatedResumeMarkdown: data.resumeMarkdown || '',
       };
       addResumeToApplication(applicationId, newResume);
       toast({ title: "New Resume Generated", description: "A new resume has been added to this application." });

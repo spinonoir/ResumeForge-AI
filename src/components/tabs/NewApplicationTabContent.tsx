@@ -1,14 +1,11 @@
 "use client";
-import {
-  generateResume,
-  type GenerateResumeInput,
-  type GenerateResumeOutput,
-} from "../../../services/scoring-engine/src/ai/flows/resume-generator";
-import {
-  generateCoverLetter as refineCoverLetterFlow,
-  type GenerateCoverLetterInput,
-  type GenerateCoverLetterOutput,
-} from "../../../services/scoring-engine/src/ai/flows/cover-letter-generator";
+import { generateResume, generateCoverLetter as refineCoverLetterFlow } from "@/lib/scoring-service";
+import type {
+  GenerateResumeRequest as GenerateResumeInput,
+  GenerateResumeResponse as GenerateResumeOutput,
+  GenerateCoverLetterRequest as GenerateCoverLetterInput,
+  GenerateCoverLetterResponse as GenerateCoverLetterOutput,
+} from "../../../services/shared/types";
 
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
@@ -146,7 +143,7 @@ export function NewApplicationTabContent() {
           accentColorUsed: accentColorInput.trim() || '#64B5F6',
           pageLimitUsed: pageLimitInput,
           generatedResumeLatex: generatedData.resume,
-          generatedResumeMarkdown: generatedData.resumeMarkdown,
+          generatedResumeMarkdown: generatedData.resumeMarkdown || '',
           isStarred: true,
         }
       ]
@@ -284,7 +281,7 @@ export function NewApplicationTabContent() {
 
           {/* {renderOutputSection("LaTeX Resume", generatedData.resume, <FileTextIcon className="mr-2 h-5 w-5 text-purple-500" />)} */}
 
-          {renderOutputSection("Markdown Resume", generatedData.resumeMarkdown, <CodeIcon className="mr-2 h-5 w-5 text-teal-500" />)}
+          {renderOutputSection("Markdown Resume", generatedData.resumeMarkdown || '', <CodeIcon className="mr-2 h-5 w-5 text-teal-500" />)}
 
           <Card className="shadow-md">
             <CardHeader>

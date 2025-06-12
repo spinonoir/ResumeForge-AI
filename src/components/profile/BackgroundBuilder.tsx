@@ -1,10 +1,7 @@
 "use client";
 
-import {
-  buildBackgroundInformation,
-  type BackgroundInformationInput,
-  type BackgroundInformationOutput,
-} from "../../../services/scoring-engine/src/ai/flows/background-information-builder";
+import { buildBackgroundInformation } from "@/lib/scoring-service";
+import type { BackgroundInformationInput, BackgroundInformationOutput } from "../../../services/shared/types";
 import { useState, useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useUserProfileStore } from '@/lib/store';
