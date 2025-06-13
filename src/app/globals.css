@@ -85,3 +85,17 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+/* Custom Accordion Trigger Icon Rotation */
+[data-state=open] > svg {
+  transform: rotate(180deg);
+}
+
+[data-state=closed] > svg {
+  transform: rotate(0deg);
+}
+
+[data-state=open] > svg,
+[data-state=closed] > svg {
+  transition: transform 0.2s ease-in-out;
+}

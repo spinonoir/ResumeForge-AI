@@ -9,7 +9,7 @@
  * - GenerateCoverLetterOutput - The return type for the generateCoverLetter function.
  */
 
-import {ai} from '@services/scoring-engine/src/ai/genkit';
+import {ai} from '../genkit';
 import {z} from 'genkit';
 
 const GenerateCoverLetterInputSchema = z.object({

@@ -1,7 +1,10 @@
 "use client";
 
-import { buildBackgroundInformation } from "@/lib/scoring-service";
-import type { BackgroundInformationInput, BackgroundInformationOutput } from "../../../services/shared/types";
+import { 
+  buildBackgroundInformation,
+  BackgroundInformationBuilderInput as BackgroundInformationInput,
+  BackgroundInformationBuilderOutput as BackgroundInformationOutput 
+} from "@/lib/profile-management-service";
 import { useState, useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useUserProfileStore } from '@/lib/store';

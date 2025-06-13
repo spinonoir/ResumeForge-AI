@@ -8,7 +8,7 @@
  * - ParseProjectTextOutput - The return type for the parseProjectText function.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai} from '../genkit';
 import {z} from 'genkit';
 
 const ParseProjectTextInputSchema = z.object({
