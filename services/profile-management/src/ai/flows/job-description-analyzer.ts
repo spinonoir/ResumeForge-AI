@@ -9,7 +9,7 @@
  * - AnalyzeJobDescriptionOutput - The return type for the analyzeJobDescription function.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai} from '../genkit';
 import {z} from 'genkit';
 
 const AnalyzeJobDescriptionInputSchema = z.object({

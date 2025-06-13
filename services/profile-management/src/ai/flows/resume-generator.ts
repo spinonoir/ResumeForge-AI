@@ -9,7 +9,7 @@
  * - GenerateResumeOutput - The return type for the generateResume function.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai} from '../genkit';
 import {z} from 'genkit';
 import fs from 'fs/promises';
 import path from 'path';

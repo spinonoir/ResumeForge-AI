@@ -1,8 +1,12 @@
 "use client";
 
+import { 
+  buildBackgroundInformation,
+  BackgroundInformationBuilderInput as BackgroundInformationInput,
+  BackgroundInformationBuilderOutput as BackgroundInformationOutput 
+} from "@/lib/profile-management-service";
 import { useState, useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { buildBackgroundInformation, type BackgroundInformationInput, type BackgroundInformationOutput } from '@/ai/flows/background-information-builder';
 import { useUserProfileStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";

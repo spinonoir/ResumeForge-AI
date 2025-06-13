@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import type {
-  EmploymentHistory, Skills, Projects, SavedApplication,
+  SavedApplication,
   EmploymentEntry, SkillEntry, ProjectEntry, PersonalDetails, EducationEntry, SocialMediaLink,
   Resume
 } from '@/types';
@@ -10,6 +10,50 @@ import { toast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
+
+// This map is a MOCK for a real AI categorization call.
+// In a real system, this logic would be replaced by an LLM call.
+const mockSkillCategoryMap: { [key: string]: string } = {
+  'python': 'Programming Language', 'javascript': 'Programming Language', 'typescript': 'Programming Language', 'java': 'Programming Language', 'c#': 'Programming Language', 'c++': 'Programming Language', 'go': 'Programming Language', 'rust': 'Programming Language', 'sql': 'Programming Language',
+  'react': 'Web Framework', 'next.js': 'Web Framework', 'vue.js': 'Web Framework', 'angular': 'Web Framework', 'node.js': 'Web Framework', 'express.js': 'Web Framework',
+  'redux': 'State Management', 'zustand': 'State Management',
+  'css': 'Styling / CSS', 'tailwind css': 'Styling / CSS', 'sass': 'Styling / CSS',
+  'mongodb': 'Database', 'postgresql': 'Database', 'mysql': 'Database', 'firebase': 'Database',
+  'aws': 'Cloud Platform', 'google cloud': 'Cloud Platform', 'azure': 'Cloud Platform',
+  'docker': 'DevOps', 'kubernetes': 'DevOps',
+  'git': 'Version Control', 'github': 'Version Control', 'gitlab': 'Version Control',
+  'jenkins': 'CI/CD', 'github actions': 'CI/CD',
+  'jest': 'Testing', 'react testing library': 'Testing', 'cypress': 'Testing',
+  'pandas': 'Data Science', 'numpy': 'Data Science', 'scikit-learn': 'Machine Learning', 'tensorflow': 'Machine Learning', 'pytorch': 'Machine Learning', 'jupyter': 'Data Science',
+  'jira': 'Project Management Tool', 'confluence': 'Project Management Tool',
+  'agile': 'Agile Methodology', 'scrum': 'Agile Methodology',
+};
+
+export async function categorizeSkill(
+  skillName: string,
+  existingCategories: string[]
+): Promise<{ category: string; isNew: boolean }> {
+  const category = mockSkillCategoryMap[skillName.toLowerCase()];
+  
+  if (category && existingCategories.includes(category)) {
+    // Mock successful categorization from the existing list
+    return { category, isNew: false };
+  }
+  
+  // Mock "second pass" where the AI suggests a new category
+  // For this mock, we'll just return a title-cased version of the skill
+  // or a new generic category if it's a common term.
+  if (skillName.toLowerCase().includes('comms')) {
+     return { category: 'Communication', isNew: true };
+  }
+
+  const suggestedCategory = skillName
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+    
+  return { category: suggestedCategory, isNew: true };
+}
 
 const generateUniqueId = uuidv4;
 
@@ -38,7 +82,10 @@ export interface UserProfileState {
 
   skills: SkillEntry[];
   addSkill: (skillData: { name: string; category?: string }) => Promise<void>;
+  updateSkill: (skillId: string, updates: Partial<Omit<SkillEntry, 'id'>>) => Promise<void>;
   removeSkill: (id: string) => Promise<void>;
+  toggleSkillAssociationForJob: (jobId: string, skillName: string) => Promise<void>;
+  toggleSkillAssociationForProject: (projectId: string, skillName: string) => Promise<void>;
 
   projects: ProjectEntry[];
   addProjectEntry: (entry: Omit<ProjectEntry, 'id'>) => Promise<void>;
@@ -58,9 +105,9 @@ export interface UserProfileState {
 
   getAIPersonalDetails: () => PersonalDetails;
   getAIEducationHistory: () => EducationEntry[];
-  getAIEmploymentHistory: () => EmploymentHistory;
-  getAISkills: () => Skills;
-  getAIProjects: () => Projects;
+  getAIEmploymentHistory: () => Array<{title: string; company: string; dates: string; description: string; jobSummary: string; skillsDemonstrated: string[]}>;
+  getAISkills: () => string[];
+  getAIProjects: () => Array<{name: string; association: string; dates: string; skillsUsed: string[]; roleDescription: string; link?: string}>;
 }
 
 const saveProfileToFirestore = async (userId: string, profileData: Partial<Pick<UserProfileState, 'personalDetails' | 'employmentHistory' | 'skills' | 'projects' | 'educationHistory' | 'backgroundInformation'>>) => {
@@ -241,9 +288,45 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
     set((state) => ({ skills: [...state.skills, newSkill] }));
     await saveProfileToFirestore(get().userId!, { skills: get().skills });
   },
+  updateSkill: async (skillId, updates) => {
+    set(state => ({
+      skills: state.skills.map(skill =>
+        skill.id === skillId ? { ...skill, ...updates } : skill
+      ),
+    }));
+    await saveProfileToFirestore(get().userId!, { skills: get().skills });
+  },
   removeSkill: async (id) => {
     set((state) => ({ skills: state.skills.filter((s) => s.id !== id) }));
     await saveProfileToFirestore(get().userId!, { skills: get().skills });
+  },
+
+  toggleSkillAssociationForJob: async (jobId, skillName) => {
+    const job = get().employmentHistory.find(j => j.id === jobId);
+    if (!job) return;
+
+    const skills = job.skillsDemonstrated || [];
+    const isAssociated = skills.some(s => s.toLowerCase() === skillName.toLowerCase());
+
+    const newSkills = isAssociated
+      ? skills.filter(s => s.toLowerCase() !== skillName.toLowerCase())
+      : [...skills, skillName];
+
+    get().updateEmploymentEntry(jobId, { ...job, skillsDemonstrated: newSkills });
+  },
+
+  toggleSkillAssociationForProject: async (projectId: string, skillName: string) => {
+    const project = get().projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    const skills = project.skillsUsed || [];
+    const isAssociated = skills.some(s => s.toLowerCase() === skillName.toLowerCase());
+
+    const newSkills = isAssociated
+      ? skills.filter(s => s.toLowerCase() !== skillName.toLowerCase())
+      : [...skills, skillName];
+      
+    get().updateProjectEntry(projectId, { ...project, skillsUsed: newSkills });
   },
 
   addProjectEntry: async (entry) => {
