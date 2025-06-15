@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2Icon, FileTextIcon, MailIcon, BarChart3Icon, CheckCircleIcon, SaveIcon, Wand2Icon, ClipboardListIcon, CodeIcon, Settings2Icon } from 'lucide-react';
+import { Loader2Icon, FileTextIcon, MailIcon, BarChart3Icon, CheckCircleIcon, SaveIcon, Wand2Icon, ClipboardListIcon, CodeIcon, Settings2Icon, ClipboardCheckIcon } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import { Label } from '../ui/label';
@@ -26,7 +26,7 @@ const generateUniqueId = uuidv4;
 
 interface GeneratedData extends GenerateResumeOutput {
   jobDescriptionUsed: string;
-  // resumeMarkdown, jobTitleFromJD, companyNameFromJD are already part of GenerateResumeOutput
+  // resumeMarkdown, jobTitleFromJD, companyNameFromJD, selectionRationale are already part of GenerateResumeOutput
 }
 
 type ResumeTemplateType = "regular" | "compact" | "ultraCompact";
@@ -53,7 +53,16 @@ export function NewApplicationTabContent() {
       setGeneratedData({...data, jobDescriptionUsed: jobDescription});
       setJobTitleForSaving(data.jobTitleFromJD || '');
       setCompanyNameForSaving(data.companyNameFromJD || '');
-      toast({ title: "Content Generated", description: "Resume, cover letter, and analysis are ready." });
+      
+      // Enhanced success message based on auto-extraction results
+      let description = "Resume, cover letter, and analysis are ready.";
+      if (data.jobTitleFromJD && data.companyNameFromJD) {
+        description += " Job title and company name auto-filled from job description.";
+      } else if (data.jobTitleFromJD || data.companyNameFromJD) {
+        description += " Job title or company name partially auto-filled.";
+      }
+      
+      toast({ title: "Content Generated", description });
     },
     onError: (error) => {
       toast({ variant: "destructive", title: "Generation Failed", description: error.message });
@@ -183,7 +192,11 @@ export function NewApplicationTabContent() {
         </CardHeader>
         <CardContent>
           <Textarea
-            placeholder="Paste job description here..."
+            placeholder="Paste job description here...
+
+Example:
+Software Engineer at Google
+We are looking for a talented Software Engineer to join our team. The ideal candidate will have experience with React, Node.js, and cloud technologies. You will be responsible for developing scalable web applications and collaborating with cross-functional teams."
             value={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
             rows={10}
@@ -276,6 +289,7 @@ export function NewApplicationTabContent() {
 
       {generatedData && (
         <div className="space-y-6">
+          {renderOutputSection("AI Selection Rationale", generatedData.selectionRationale, <ClipboardCheckIcon className="mr-2 h-5 w-5 text-indigo-500" />)}
           {renderOutputSection("Generated Summary", generatedData.summary, <CheckCircleIcon className="mr-2 h-5 w-5 text-green-500" />)}
           {renderOutputSection("Match Analysis", generatedData.matchAnalysis, <BarChart3Icon className="mr-2 h-5 w-5 text-blue-500" />)}
 
@@ -323,16 +337,44 @@ export function NewApplicationTabContent() {
                 <CardDescription>Save this generated application package for future reference. Job title and company name will be auto-filled if extracted by AI.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <Input
-                    placeholder="Job Title (e.g., Senior Software Engineer)"
-                    value={jobTitleForSaving}
-                    onChange={(e) => setJobTitleForSaving(e.target.value)}
-                />
-                <Input
-                    placeholder="Company Name (e.g., Google)"
-                    value={companyNameForSaving}
-                    onChange={(e) => setCompanyNameForSaving(e.target.value)}
-                />
+                <div className="space-y-1">
+                    <div className="relative">
+                        <Input
+                            placeholder="Job Title (e.g., Senior Software Engineer)"
+                            value={jobTitleForSaving}
+                            onChange={(e) => setJobTitleForSaving(e.target.value)}
+                        />
+                        {generatedData?.jobTitleFromJD && (
+                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                <CheckCircleIcon className="h-4 w-4 text-green-500" />
+                            </div>
+                        )}
+                    </div>
+                    {generatedData?.jobTitleFromJD && (
+                        <p className="text-xs text-muted-foreground">
+                            Auto-extracted from job description
+                        </p>
+                    )}
+                </div>
+                <div className="space-y-1">
+                    <div className="relative">
+                        <Input
+                            placeholder="Company Name (e.g., Google)"
+                            value={companyNameForSaving}
+                            onChange={(e) => setCompanyNameForSaving(e.target.value)}
+                        />
+                        {generatedData?.companyNameFromJD && (
+                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                <CheckCircleIcon className="h-4 w-4 text-green-500" />
+                            </div>
+                        )}
+                    </div>
+                    {generatedData?.companyNameFromJD && (
+                        <p className="text-xs text-muted-foreground">
+                            Auto-extracted from job description
+                        </p>
+                    )}
+                </div>
             </CardContent>
             <CardFooter>
                 <Button onClick={handleSaveApplication} className="w-full sm:w-auto">

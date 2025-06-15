@@ -39,6 +39,47 @@ export interface Resume {
   isStarred: boolean;
 }
 
+export type ApplicationStatus = 'saved' | 'submitted' | 'interviewing' | 'offer' | 'rejected' | 'archived';
+
+export interface CorrespondenceEntry {
+  id: string;
+  date: string;
+  type: 'email' | 'phone' | 'interview' | 'note';
+  content: string;
+}
+
+export interface ImportantDate {
+  id: string;
+  date: string;
+  description: string;
+  isFollowUp: boolean;
+  notes?: string;
+}
+
+export interface LearningSuggestion {
+  id: string;
+  title: string;
+  url: string;
+  category: 'article' | 'video' | 'course' | 'project' | 'other';
+  description?: string;
+}
+
+export interface OfferDetails {
+    payRate?: string;
+    notes?: string;
+}
+
+export interface RejectionDetails {
+    rejectedBy: 'user' | 'company';
+    reason?: string;
+    takeaways?: string;
+}
+
+export interface ArchiveDetails {
+    reason?: string;
+    takeaways?: string;
+}
+
 export interface SavedApplication {
   id: string;
   jobTitle: string;
@@ -49,6 +90,15 @@ export interface SavedApplication {
   generatedSummary: string;
   matchAnalysis: string;
   createdAt: string;
+  status: ApplicationStatus;
+  notes?: string;
+  submissionDate?: string;
+  correspondence?: CorrespondenceEntry[];
+  importantDates?: ImportantDate[];
+  suggestedLearning?: LearningSuggestion[];
+  offerDetails?: OfferDetails;
+  rejectionDetails?: RejectionDetails;
+  archiveDetails?: ArchiveDetails;
 }
 
 export interface SocialMediaLink {

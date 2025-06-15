@@ -101,6 +101,7 @@ export interface GenerateResumeResponse {
   summary: string;
   coverLetter: string;
   matchAnalysis: string;
+  selectionRationale: string;
   resumeMarkdown?: string;
   jobTitleFromJD?: string;
   companyNameFromJD?: string;

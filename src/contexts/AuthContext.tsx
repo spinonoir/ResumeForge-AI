@@ -36,6 +36,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setApplicationsUserId(null);
 
         // Load dummy data for development if no user is logged in
+        // This now uses a dummy user ID that's handled specially in the store
         if (process.env.NODE_ENV === 'development') {
           loadUserProfile('dummy_dev_user_id_for_initial_load');
         }
