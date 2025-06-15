@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LoginDialog } from "@/components/auth/LoginDialog";
 import { Button } from "@/components/ui/button";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
+import Link from 'next/link';
 
 export default function Home() {
   const { user, loading, logout } = useAuth();
@@ -37,6 +37,11 @@ export default function Home() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
+            <Link href="/applications">
+              <Button variant="outline" size="sm">
+                <ArchiveIcon className="mr-2 h-4 w-4" /> Saved Applications
+              </Button>
+            </Link>
             <ThemeToggleButton />
             <Button variant="outline" size="sm" onClick={logout}>
               <LogOutIcon className="mr-2 h-4 w-4" /> Logout
@@ -46,15 +51,12 @@ export default function Home() {
       </header>
       <main className="p-4 sm:p-6 container mx-auto">
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6 rounded-lg p-1">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 mb-6 rounded-lg p-1">
             <TabsTrigger value="profile" className="py-2.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md rounded-md">
               <UserCircle2Icon className="mr-2 h-5 w-5" /> My Profile
             </TabsTrigger>
             <TabsTrigger value="new_application" className="py-2.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md rounded-md">
               <FilePlus2Icon className="mr-2 h-5 w-5" /> New Application
-            </TabsTrigger>
-            <TabsTrigger value="saved_applications" className="py-2.5 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md rounded-md">
-              <ArchiveIcon className="mr-2 h-5 w-5" /> Saved Applications
             </TabsTrigger>
           </TabsList>
           
@@ -63,9 +65,6 @@ export default function Home() {
           </TabsContent>
           <TabsContent value="new_application" className="mt-2 p-0.5">
             <NewApplicationTabContent />
-          </TabsContent>
-          <TabsContent value="saved_applications" className="mt-2 p-0.5">
-            <SavedApplicationsTabContent />
           </TabsContent>
         </Tabs>
       </main>

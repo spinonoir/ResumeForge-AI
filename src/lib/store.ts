@@ -4,12 +4,16 @@ import { create } from 'zustand';
 import type {
   SavedApplication,
   EmploymentEntry, SkillEntry, ProjectEntry, PersonalDetails, EducationEntry, SocialMediaLink,
-  Resume
+  Resume,
+  ApplicationStatus,
+  CorrespondenceEntry,
+  ImportantDate
 } from '@/types';
 import { toast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
+import { add, formatISO } from 'date-fns';
 
 // This map is a MOCK for a real AI categorization call.
 // In a real system, this logic would be replaced by an LLM call.
@@ -172,6 +176,31 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
 
   loadUserProfile: async (userId) => {
     set({ isLoadingProfile: true, userId });
+    
+    // Handle development dummy data without Firestore access
+    if (process.env.NODE_ENV === 'development' && (!userId || userId.startsWith('dummy_dev_user_id'))) {
+      set({
+        personalDetails: { ...defaultPersonalDetails, name: "Dev User", email: "dev@example.com"},
+        employmentHistory: [
+          { id: 'dev1', title: 'Software Engineer (Dev)', company: 'Tech Solutions Inc.', dates: 'Jan 2020 - Present', jobSummary: 'Dev summary for test.', description: 'Dev data for test description.', skillsDemonstrated: ['React', 'Node.js'] },
+        ],
+        skills: [{ id: 'devs1', name: 'DevSkill', category: 'DevCategory' }],
+        projects: [{
+          id: 'devp1',
+          name: 'Dev Project',
+          association: 'Personal',
+          dates: '2023',
+          skillsUsed: ['React', 'Firebase'],
+          roleDescription: 'Lead developer for this awesome dev project.',
+          link: 'https://example.com/devproject'
+        }],
+        educationHistory: [{ id: 'devedu1', institution: 'Dev University', degree: 'B.S. Computer Science', dates: '2016-2020', fieldOfStudy: 'Computer Science', gpa: '3.8', accomplishments: 'Graduated with honors. Dean\'s List all semesters.' }],
+        backgroundInformation: 'Dev background info.',
+        isLoadingProfile: false,
+      });
+      return;
+    }
+
     const profileRef = doc(db, 'users', userId, 'profile', 'data');
     const docSnap = await getDoc(profileRef);
     if (docSnap.exists()) {
@@ -212,29 +241,8 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         isLoadingProfile: false,
       });
     } else {
-      if (process.env.NODE_ENV === 'development' && (!userId || userId.startsWith('dummy_dev_user_id'))) {
-         set({
-            personalDetails: { ...defaultPersonalDetails, name: "Dev User", email: "dev@example.com"},
-            employmentHistory: [
-              { id: 'dev1', title: 'Software Engineer (Dev)', company: 'Tech Solutions Inc.', dates: 'Jan 2020 - Present', jobSummary: 'Dev summary for test.', description: 'Dev data for test description.', skillsDemonstrated: ['React', 'Node.js'] },
-            ],
-            skills: [{ id: 'devs1', name: 'DevSkill', category: 'DevCategory' }],
-            projects: [{
-              id: 'devp1',
-              name: 'Dev Project',
-              association: 'Personal',
-              dates: '2023',
-              skillsUsed: ['React', 'Firebase'],
-              roleDescription: 'Lead developer for this awesome dev project.',
-              link: 'https://example.com/devproject'
-            }],
-            educationHistory: [{ id: 'devedu1', institution: 'Dev University', degree: 'B.S. Computer Science', dates: '2016-2020', fieldOfStudy: 'Computer Science', gpa: '3.8', accomplishments: 'Graduated with honors. Dean\'s List all semesters.' }],
-            backgroundInformation: 'Dev background info.',
-            isLoadingProfile: false,
-         });
-      } else {
-        set({ isLoadingProfile: false, personalDetails: {...defaultPersonalDetails}, educationHistory: [] });
-      }
+      // No document found for authenticated user
+      set({ isLoadingProfile: false, personalDetails: {...defaultPersonalDetails}, educationHistory: [] });
     }
   },
   clearUserProfile: () => set({
@@ -388,13 +396,80 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
 }));
 
 
+/**
+ * MOCK AI SERVICE - Correspondence Analysis
+ * 
+ * This function simulates an AI analyzing a piece of correspondence to extract key information.
+ *
+ * @param content - The text content of the correspondence (e.g., a pasted email).
+ * @param currentStatus - The current status of the application.
+ * 
+ * @returns A promise resolving to an object containing potential updates. A real AI service would:
+ *   1. Be sent the text content and current application context via a secure backend endpoint.
+ *   2. Use an LLM to perform Natural Language Understanding (NLU) to:
+ *      a. Determine the sentiment and intent of the text.
+ *      b. Extract key entities like dates, times, and names.
+ *      c. Classify the correspondence type (e.g., interview invitation, rejection, confirmation).
+ *   3. Based on the analysis, the LLM would decide if a status change is logical (e.g., if text mentions "arranging an interview" and status is 'submitted', suggest changing to 'interviewing').
+ *   4. It would also extract any specific dates mentioned and format them.
+ *   5. The backend would return a structured JSON object like the one below.
+ */
+const analyzeCorrespondence = async (content: string, currentStatus: ApplicationStatus): Promise<{ newStatus?: ApplicationStatus, extractedDate?: Omit<ImportantDate, 'id'> }> => {
+    await new Promise(res => setTimeout(res, 1500)); // Simulate network delay
+
+    const lowerContent = content.toLowerCase();
+
+    // Mocked Logic for Interview
+    if ((lowerContent.includes("interview") || lowerContent.includes("we'd like to schedule a call")) && currentStatus === 'submitted') {
+        
+        // Mocked Date Extraction
+        const dateMatch = content.match(/(\d{1,2}\/\d{1,2}\/\d{4})|(\w+ \d{1,2}(st|nd|rd|th)?)/);
+        let extractedDate: Omit<ImportantDate, 'id'> | undefined;
+
+        if (dateMatch) {
+            try {
+                const parsedDate = new Date(dateMatch[0]);
+                extractedDate = {
+                    date: parsedDate.toISOString(),
+                    description: "Interview Scheduled (auto-detected)",
+                    isFollowUp: false,
+                };
+            } catch (e) { /* ignore parse error for mock */ }
+        }
+        
+        return { 
+            newStatus: 'interviewing',
+            extractedDate
+        };
+    }
+
+    // Mocked Logic for Offer
+    if (lowerContent.includes("pleased to offer") || lowerContent.includes("offer of employment")) {
+        return { newStatus: 'offer' };
+    }
+
+    // Mocked Logic for Rejection
+    if (lowerContent.includes("not moving forward") || lowerContent.includes("filled the position") || lowerContent.includes("unfortunately")) {
+        return { newStatus: 'rejected' };
+    }
+
+    return {};
+};
+
+
 interface ApplicationsState {
   userId: string | null;
   setUserId: (userId: string | null) => void;
   isLoadingApplications: boolean;
   savedApplications: SavedApplication[];
-  addSavedApplication: (appData: Omit<SavedApplication, 'id' | 'createdAt'>) => Promise<boolean>;
+  pendingDialog: { type: 'offer' | 'rejection'; appId: string } | null;
+  setPendingDialog: (dialog: { type: 'offer' | 'rejection'; appId: string } | null) => void;
+  addSavedApplication: (appData: Omit<SavedApplication, 'id' | 'createdAt' | 'status' | 'submissionDate' | 'correspondence' | 'importantDates' | 'suggestedLearning' | 'offerDetails' | 'rejectionDetails' | 'archiveDetails'>) => Promise<boolean>;
+  updateApplication: (appId: string, updates: Partial<Pick<SavedApplication, 'status' | 'notes' | 'submissionDate' | 'importantDates' | 'suggestedLearning' | 'offerDetails' | 'rejectionDetails' | 'archiveDetails'>>) => Promise<void>;
+  addCorrespondence: (appId: string, correspondence: Omit<CorrespondenceEntry, 'id'>) => Promise<{ statusChanged: boolean, dateAdded: boolean }>;
   removeSavedApplication: (id: string) => Promise<void>;
+  addImportantDate: (appId: string, date: Omit<ImportantDate, 'id'>) => Promise<void>;
+  removeImportantDate: (appId: string, dateId: string) => Promise<void>;
   loadSavedApplications: (userId: string) => Promise<void>;
   clearSavedApplications: () => void;
   addResumeToApplication: (applicationId: string, resumeData: Omit<Resume, 'id' | 'createdAt' | 'isStarred'>) => Promise<void>;
@@ -408,6 +483,8 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
   setUserId: (userId) => set({ userId }),
   isLoadingApplications: true,
   savedApplications: [],
+  pendingDialog: null,
+  setPendingDialog: (pendingDialog) => set({ pendingDialog }),
 
   loadSavedApplications: async (userId) => {
     set({ isLoadingApplications: true, userId });
@@ -421,20 +498,8 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
       
-      let resumes: Resume[] = data.resumes || [];
-      if (!data.resumes && data.generatedResumeLatex) {
-          resumes = [{
-              id: generateUniqueId(),
-              name: 'Imported Resume',
-              createdAt: data.createdAt,
-              templateUsed: data.resumeTemplateUsed || 'classic',
-              accentColorUsed: data.accentColorUsed || '#000000',
-              pageLimitUsed: data.pageLimitUsed || 1,
-              generatedResumeLatex: data.generatedResumeLatex,
-              generatedResumeMarkdown: data.generatedResumeMarkdown || '',
-              isStarred: true,
-          }];
-      }
+      const safeMap = (arr: any[], idPrefix: string) => 
+        Array.isArray(arr) ? arr.map((item: any, index) => ({ ...item, id: item.id || `${idPrefix}-${index}-${generateUniqueId()}` })) : [];
 
       apps.push({
         id: docSnap.id,
@@ -445,7 +510,16 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
         generatedSummary: data.generatedSummary,
         matchAnalysis: data.matchAnalysis,
         createdAt: data.createdAt,
-        resumes,
+        resumes: safeMap(data.resumes, 'resume'),
+        status: data.status || 'saved' as ApplicationStatus,
+        notes: data.notes || '',
+        submissionDate: data.submissionDate,
+        correspondence: safeMap(data.correspondence, 'corr'),
+        importantDates: safeMap(data.importantDates, 'date'),
+        suggestedLearning: safeMap(data.suggestedLearning, 'learn'),
+        offerDetails: data.offerDetails,
+        rejectionDetails: data.rejectionDetails,
+        archiveDetails: data.archiveDetails,
        } as SavedApplication);
     });
     set({ savedApplications: apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), isLoadingApplications: false });
@@ -458,7 +532,19 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
       toast({ variant: "destructive", title: "Error", description: "You must be logged in to save an application." });
       return false;
     }
-    const newApp = { ...appData, createdAt: new Date().toISOString() };
+    const newApp = { 
+      ...appData, 
+      createdAt: new Date().toISOString(),
+      status: 'saved' as ApplicationStatus,
+      notes: '',
+      submissionDate: undefined,
+      correspondence: [],
+      importantDates: [],
+      suggestedLearning: [],
+      offerDetails: undefined,
+      rejectionDetails: undefined,
+      archiveDetails: undefined,
+    };
     const appsCollectionRef = collection(db, 'users', currentUserId, 'applications');
 
     try {
@@ -491,6 +577,185 @@ export const useApplicationsStore = create<ApplicationsState>((set, get) => ({
     } catch (error) {
       console.error("Error removing application from Firestore: ", error);
       toast({ variant: "destructive", title: "Removal Failed", description: "Could not remove application from cloud." });
+    }
+  },
+
+  updateApplication: async (appId, updates) => {
+    const { userId, savedApplications } = get();
+    if (!userId) {
+      toast({ variant: "destructive", title: "Error", description: "You must be logged in." });
+      return;
+    }
+
+    const originalApp = savedApplications.find(app => app.id === appId);
+    if (!originalApp) return;
+
+    const updatedApp = { ...originalApp, ...updates };
+    const dbUpdates: { [key: string]: any } = { ...updates };
+
+    // Firestore does not allow 'undefined' values. We must convert them to deleteField()
+    for (const key in dbUpdates) {
+        if (dbUpdates[key] === undefined) {
+            dbUpdates[key] = deleteField();
+        }
+    }
+
+    // If status is changing, handle side-effects
+    if (updates.status && updates.status !== originalApp.status) {
+      if (updates.status === 'submitted') {
+        // Set submission date and follow-up
+        updatedApp.submissionDate = new Date().toISOString();
+        dbUpdates.submissionDate = updatedApp.submissionDate;
+        
+        const followUpDate = add(new Date(), { weeks: 2 });
+        const newFollowUp: ImportantDate = {
+          id: generateUniqueId(),
+          date: formatISO(followUpDate),
+          description: "Follow up on application submission.",
+          isFollowUp: true
+        };
+
+        const currentDates = Array.isArray(originalApp.importantDates) ? originalApp.importantDates : [];
+        updatedApp.importantDates = [...(currentDates.filter(d => !d.isFollowUp)), newFollowUp];
+        dbUpdates.importantDates = updatedApp.importantDates;
+
+      } else if (originalApp.status === 'submitted') {
+        // If moving away from submitted, remove the follow-up reminder
+        const currentDates = Array.isArray(originalApp.importantDates) ? originalApp.importantDates : [];
+        updatedApp.importantDates = currentDates.filter(d => !d.isFollowUp);
+        dbUpdates.importantDates = updatedApp.importantDates;
+      }
+    }
+
+    // Handle adding offer details
+    if (updates.offerDetails) {
+        const offerDate: ImportantDate = {
+            id: generateUniqueId(),
+            date: new Date().toISOString(),
+            description: "Received Job Offer",
+            isFollowUp: false,
+            notes: updates.offerDetails.notes
+        };
+        updatedApp.importantDates = [...(updatedApp.importantDates || []), offerDate];
+        dbUpdates.importantDates = updatedApp.importantDates;
+    }
+
+    const updatedApplications = savedApplications.map(app => 
+      app.id === appId ? updatedApp : app
+    );
+
+    set({ savedApplications: updatedApplications });
+
+    const appRef = doc(db, 'users', userId, 'applications', appId);
+    try {
+      await updateDoc(appRef, dbUpdates);
+      toast({ title: "Application Updated", description: "Your application has been updated." });
+    } catch (error) {
+      console.error("Error updating application in Firestore: ", error);
+      toast({ variant: "destructive", title: "Update Failed", description: "Could not update application in the cloud. Your local changes have been reverted." });
+      // Revert local state on failure
+      set({ savedApplications });
+    }
+  },
+
+  addCorrespondence: async (appId, correspondence) => {
+    const { userId, savedApplications, updateApplication, addImportantDate, setPendingDialog } = get();
+    if (!userId) {
+      toast({ variant: "destructive", title: "Error", description: "You must be logged in." });
+      return { statusChanged: false, dateAdded: false };
+    }
+    
+    const app = savedApplications.find(a => a.id === appId);
+    if (!app) return { statusChanged: false, dateAdded: false };
+
+    const newCorrespondenceEntry: CorrespondenceEntry = { ...correspondence, id: generateUniqueId() };
+
+    const updatedApplications = savedApplications.map(a => 
+      a.id === appId 
+        ? { ...a, correspondence: [...(a.correspondence || []), newCorrespondenceEntry] } 
+        : a
+    );
+    
+    set({ savedApplications: updatedApplications });
+
+    const appRef = doc(db, 'users', userId, 'applications', appId);
+    const appToUpdate = updatedApplications.find(a => a.id === appId);
+
+    try {
+      if (appToUpdate) {
+        await updateDoc(appRef, { correspondence: appToUpdate.correspondence });
+        toast({ title: "Correspondence Added", description: "Entry saved. AI is now analyzing..." });
+      }
+
+      // AI Analysis Step
+      const aiResult = await analyzeCorrespondence(correspondence.content, app.status);
+      
+      let statusChanged = false;
+      let dateAdded = false;
+
+      if (aiResult.newStatus && (aiResult.newStatus === 'offer' || aiResult.newStatus === 'rejected')) {
+          setPendingDialog({ type: aiResult.newStatus as 'offer' | 'rejection', appId });
+          toast({ title: "AI Analysis Complete", description: "The AI has detected a status change. Please provide details." });
+      } else if (aiResult.newStatus) {
+        await updateApplication(appId, { status: aiResult.newStatus });
+        statusChanged = true;
+      }
+      if (aiResult.extractedDate) {
+        await addImportantDate(appId, aiResult.extractedDate);
+        dateAdded = true;
+      }
+
+      if(statusChanged || dateAdded) {
+          let description = "The AI has finished its analysis. ";
+          if(statusChanged) description += `The status was updated to "${aiResult.newStatus}". `;
+          if(dateAdded) description += `An important date was added to the tracker.`;
+          toast({ title: "AI Analysis Complete", description });
+      }
+
+      return { statusChanged, dateAdded };
+
+    } catch (error) {
+       console.error("Error adding correspondence in Firestore: ", error);
+       toast({ variant: "destructive", title: "Update Failed", description: "Could not save correspondence. Your local changes have been reverted." });
+       set({ savedApplications });
+       return { statusChanged: false, dateAdded: false };
+    }
+  },
+
+  addImportantDate: async (appId, date) => {
+    const { userId, savedApplications } = get();
+    if (!userId) return;
+
+    const newDate: ImportantDate = { ...date, id: generateUniqueId() };
+    const updatedApplications = savedApplications.map(app =>
+      app.id === appId
+        ? { ...app, importantDates: [...(app.importantDates || []), newDate] }
+        : app
+    );
+    set({ savedApplications: updatedApplications });
+    
+    const appToUpdate = updatedApplications.find(app => app.id === appId);
+    if(appToUpdate) {
+        const appRef = doc(db, 'users', userId, 'applications', appId);
+        await updateDoc(appRef, { importantDates: appToUpdate.importantDates });
+    }
+  },
+
+  removeImportantDate: async (appId, dateId) => {
+    const { userId, savedApplications } = get();
+    if (!userId) return;
+
+    const updatedApplications = savedApplications.map(app =>
+      app.id === appId
+        ? { ...app, importantDates: (app.importantDates || []).filter(d => d.id !== dateId) }
+        : app
+    );
+    set({ savedApplications: updatedApplications });
+
+    const appToUpdate = updatedApplications.find(app => app.id === appId);
+    if(appToUpdate) {
+        const appRef = doc(db, 'users', userId, 'applications', appId);
+        await updateDoc(appRef, { importantDates: appToUpdate.importantDates });
     }
   },
 
