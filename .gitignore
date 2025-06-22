@@ -46,3 +46,4 @@ firestore-debug.log
 
 # special
 secret.sh
+/secrets/*
