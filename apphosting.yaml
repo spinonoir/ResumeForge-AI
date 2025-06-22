@@ -49,3 +49,20 @@ env:
     availability:
       - BUILD
       - RUNTIME
+
+  - variable: NEXT_PUBLIC_MCP_COMPANY_INTEL_URL
+    secret: next-public-mcp-company-intel-url
+    availability:
+      - BUILD
+      - RUNTIME
+  
+  - variable: MCP_SECRET
+    secret: mcp-secret
+    availability:
+      - RUNTIME
+
+  - variable: PORT
+    value: 4000
+  
+  - variable: LOG_LEVEL
+    value: info

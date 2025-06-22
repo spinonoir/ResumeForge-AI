@@ -1,0 +1,23 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: company-intel-service
+spec:
+  template:
+    spec:
+      containers:
+      - image: company-intel-image # This will be replaced by the actual image path during deployment
+        ports:
+        - containerPort: 8000
+        env:
+        - name: PORT
+          value: "8000"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: PROJECT_ID
+          value: "your-gcp-project-id" # Replace with your actual GCP project ID
+        - name: MCP_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: mcp-secret
+              key: "1" # Use version 1 of the secret 
