@@ -11,7 +11,10 @@ export class ScoringService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_SCORING_SERVICE_URL || 'http://localhost:8001';
+    // For production, this will use the relative path to the API endpoint.
+    // For local development with Firebase emulators, this will be proxied.
+    // Can be overridden with an environment variable for other setups.
+    this.baseUrl = process.env.NEXT_PUBLIC_SCORING_SERVICE_URL || '/api/scoring';
   }
 
   private extractJobTitleFromJD(jobDescription: string): string {
@@ -416,13 +419,17 @@ Sincerely,
     }
   }
 
-
-
   async healthCheck(): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}/health`);
-      return response.ok;
-    } catch {
+      if (!response.ok) {
+        console.error('Scoring service health check failed with status:', response.status);
+        return false;
+      }
+      const data = await response.json();
+      return data.status === 'ok';
+    } catch (error) {
+      console.error('Scoring service health check failed:', error);
       return false;
     }
   }
@@ -441,3 +448,5 @@ export const parseProjectText = (input: any) => scoringService.parseProjectText(
 
 // For backwards compatibility with any existing function names
 export const refineCoverLetterFlow = generateCoverLetter;
+
+export const healthCheck = () => scoringService.healthCheck();
