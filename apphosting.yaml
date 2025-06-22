@@ -1,7 +1,47 @@
-# Settings to manage and configure a Firebase App Hosting backend.
-# https://firebase.google.com/docs/app-hosting/configure
-
+# apphosting.yaml
 runConfig:
-  # Increase this value if you'd like to automatically spin up
-  # more instances in response to increased traffic.
-  maxInstances: 1
+  # You can customize these if needed, but the defaults are usually fine.
+  # cpu: 1
+  # memoryMiB: 512
+  # maxInstances: 1
+env:
+  # This is your sensitive API key. It MUST be a secret in Google Cloud Secret Manager.
+  - variable: GOOGLE_GENAI_API_KEY
+    secret: google-genai-api-key # This name MUST match the secret name you create below.
+    availability:
+      - BUILD
+      - RUNTIME
+
+  # These Firebase keys are considered "public" by Firebase, as they are part of
+  # your client-side application's configuration and are visible in the browser.
+  # We will put their values directly here in apphosting.yaml.
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyAtEfbJzGwTHvwPkkGh7a2FuCdT8NvgWuQ
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: resumeforge-ai-2quwm.firebaseapp.com
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: resumeforge-ai-2quwm
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: resumeforge-ai-2quwm.firebasestorage.app
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "778637632398"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:778637632398:web:2c92f7455b45d885f07adf
+    availability:
+      - BUILD
+      - RUNTIME
