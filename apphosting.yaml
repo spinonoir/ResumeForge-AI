@@ -1,47 +1,51 @@
-# apphosting.yaml
+# apphosting.yaml (THIS IS SAFE TO COMMIT TO GITHUB)
 runConfig:
   # You can customize these if needed, but the defaults are usually fine.
   # cpu: 1
   # memoryMiB: 512
   # maxInstances: 1
 env:
-  # This is your sensitive API key. It MUST be a secret in Google Cloud Secret Manager.
+  # ALL these variables will now reference secrets in Google Cloud Secret Manager.
+  # The "secret:" value MUST match the name you give the secret in Secret Manager.
+
   - variable: GOOGLE_GENAI_API_KEY
-    secret: google-genai-api-key # This name MUST match the secret name you create below.
+    secret: google-genai-api-key # Matches the secret name you create
     availability:
       - BUILD
       - RUNTIME
 
-  # These Firebase keys are considered "public" by Firebase, as they are part of
-  # your client-side application's configuration and are visible in the browser.
-  # We will put their values directly here in apphosting.yaml.
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: AIzaSyAtEfbJzGwTHvwPkkGh7a2FuCdT8NvgWuQ
+    secret: next-public-firebase-api-key # Matches the secret name you create
     availability:
       - BUILD
       - RUNTIME
+
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: resumeforge-ai-2quwm.firebaseapp.com
+    secret: next-public-firebase-auth-domain # Matches the secret name you create
     availability:
       - BUILD
       - RUNTIME
+
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: resumeforge-ai-2quwm
+    secret: next-public-firebase-project-id # Matches the secret name you create
     availability:
       - BUILD
       - RUNTIME
+
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: resumeforge-ai-2quwm.firebasestorage.app
+    secret: next-public-firebase-storage-bucket # Matches the secret name you create
     availability:
       - BUILD
       - RUNTIME
+
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: "778637632398"
+    secret: next-public-firebase-messaging-sender-id # Matches the secret name you create
     availability:
       - BUILD
       - RUNTIME
+
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: 1:778637632398:web:2c92f7455b45d885f07adf
+    secret: next-public-firebase-app-id # Matches the secret name you create
     availability:
       - BUILD
       - RUNTIME

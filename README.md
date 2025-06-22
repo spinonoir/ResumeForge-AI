@@ -1,6 +1,6 @@
 # ResumeForge AI
 
-*AI-powered resume optimization and job matching platform*
+*AI-powered resume optimization and job application management platform*
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
@@ -9,55 +9,65 @@
 
 ## 🚀 Overview
 
-ResumeForge AI is an intelligent resume optimization platform that helps job seekers create perfectly tailored resumes and cover letters. Using advanced AI and machine learning techniques, it analyzes job descriptions and matches them against user profiles to generate highly targeted application materials.
+ResumeForge AI is an intelligent resume optimization and job application management platform that helps job seekers create perfectly tailored resumes, cover letters, and track their application process. Using advanced AI powered by Google's Gemini 2.0 Flash model, it analyzes job descriptions and matches them against user profiles to generate highly targeted application materials.
 
 ### ✨ Key Features
 
-- **AI-Powered Resume Generation**: Create LaTeX-formatted resumes tailored to specific job descriptions
-- **Dynamic Cover Letter Creation**: Generate compelling cover letters with company-specific customization
+#### **AI-Powered Content Generation**
+- **Smart Resume Builder**: Generate LaTeX-formatted resumes tailored to specific job descriptions
+- **Dynamic Cover Letters**: Create compelling, company-specific cover letters
 - **Intelligent Background Builder**: Interactive AI assistant helps articulate professional experiences
-- **Match Analysis**: Detailed scoring of how well your profile fits target positions
-- **Profile Management**: Secure cloud storage of employment history, skills, and projects
-- **Real-time Recommendations**: Smart suggestions for improving resume effectiveness
+- **Natural Language Input**: Add employment history, projects, and skills using conversational AI
 
-## 🎯 How It Works
+#### **Profile Management**
+- **Comprehensive Profiles**: Store employment history, skills, projects, education, and personal details
+- **AI Text Parsing**: Describe your experience in natural language and let AI structure the data
+- **Smart Skill Categorization**: Automatic categorization of technical and soft skills
+- **Flexible Data Entry**: Choose between traditional forms or AI-powered text input
 
-1. **Build Your Profile**: Add employment history, skills, and projects through intuitive forms or AI-assisted conversation
-2. **Paste Job Description**: Input any job posting to analyze requirements and company context
-3. **AI Analysis**: Advanced algorithms score your fit and identify optimization opportunities
-4. **Generate Materials**: Create tailored resume and cover letter optimized for the specific role
-5. **Refine & Apply**: Review AI recommendations and export polished application materials
+#### **Application Tracking**
+- **Complete Application Management**: Track applications from creation to outcome
+- **Status Tracking**: Monitor progress through saved, submitted, interviewing, offer, and rejection stages
+- **Correspondence Logging**: Keep track of all communications with employers
+- **Resume Versioning**: Manage multiple resume variants for different applications
+
+#### **Advanced Analysis**
+- **Match Scoring**: Detailed analysis of how well your profile fits target positions
+- **ATS Optimization**: Resume generation optimized for Applicant Tracking Systems
+- **Customizable Templates**: Multiple LaTeX templates (regular, compact, ultra-compact)
+- **Visual Customization**: Custom accent colors and page limits
 
 ## 🛠 Technology Stack
 
-### Frontend
-- **Next.js 15** - React framework with App Router
+### **Frontend**
+- **Next.js 15** - React framework with App Router and Turbopack
 - **TypeScript** - Type-safe development
-- **Tailwind CSS** - Utility-first styling
-- **Radix UI** - Accessible component primitives
-- **Zustand** - State management
+- **Tailwind CSS** - Utility-first styling with custom design system
+- **Radix UI** - Accessible, unstyled component primitives
+- **Zustand** - Lightweight state management
+- **TanStack Query** - Data fetching, caching, and synchronization
 
-### Backend & AI
-- **Firebase** - Authentication and cloud storage
-- **Google Genkit** - AI workflow orchestration
-- **Gemini 2.0 Flash** - Large language model
-- **TanStack Query** - Data fetching and caching
+### **Backend & AI**
+- **Firebase** - Authentication, Firestore database, and cloud storage
+- **Google Genkit** - AI workflow orchestration framework
+- **Gemini 2.0 Flash** - Google's latest large language model
+- **Microservices Architecture** - Separate services for profile management and scoring
 
-### Development
-- **ESLint** - Code linting
-- **PostCSS** - CSS processing
-- **TypeScript** - Static type checking
+### **Development & Deployment**
+- **ESLint & TypeScript** - Code quality and type checking
+- **Firebase Hosting** - Production deployment
+- **Docker Compose** - Local development environment
+- **GitHub Actions** - CI/CD pipeline (future implementation)
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### **Prerequisites**
+- Node.js 18 or later
+- npm or yarn package manager
+- Firebase project with Firestore enabled
+- Google AI API key (Gemini 2.0 Flash access)
 
-- Node.js 18+ 
-- npm or yarn
-- Firebase project
-- Google AI API key
-
-### Installation
+### **Installation**
 
 1. **Clone the repository**
    ```bash
@@ -70,9 +80,9 @@ ResumeForge AI is an intelligent resume optimization platform that helps job see
    npm install
    ```
 
-3. **Environment Setup**
+3. **Environment Configuration**
    
-   Create `.env.local` file:
+   Create `.env.local` in the root directory:
    ```env
    # Firebase Configuration
    NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
@@ -81,128 +91,196 @@ ResumeForge AI is an intelligent resume optimization platform that helps job see
    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
    NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-   
-   # Google AI
+
+   # Google AI Configuration
    GOOGLE_GENAI_API_KEY=your_google_ai_api_key
    ```
 
 4. **Firebase Setup**
-   
-   Initialize Firebase in your project:
    ```bash
+   # Install Firebase CLI globally
    npm install -g firebase-tools
+   
+   # Login to Firebase
    firebase login
+   
+   # Initialize Firestore (if not already done)
    firebase init firestore
    ```
 
-5. **Run Development Server**
+5. **Development Server**
    ```bash
+   # Start Next.js development server with Turbopack
    npm run dev
    ```
+   
+   The application will be available at [http://localhost:9002](http://localhost:9002)
 
-   Open [http://localhost:9002](http://localhost:9002) in your browser.
+6. **AI Development (Optional)**
+   ```bash
+   # Start Genkit development server for AI flows
+   npm run genkit:dev
+   
+   # Or with hot reload
+   npm run genkit:watch
+   ```
 
-### AI Development
-
-For AI workflow development:
-
-```bash
-# Start Genkit development server
-npm run genkit:dev
-
-# Watch mode for AI flows
-npm run genkit:watch
-```
-
-## 📁 Project Structure
+## 📁 Project Architecture
 
 ```
 resumeforge-ai/
 ├── src/
-│   ├── ai/                    # AI workflows and prompts
-│   │   ├── flows/            # Genkit flow definitions
-│   │   └── genkit.ts         # AI configuration
-│   ├── app/                  # Next.js app directory
-│   ├── components/           # React components
-│   │   ├── auth/            # Authentication components
-│   │   ├── profile/         # Profile management
-│   │   ├── tabs/            # Main application tabs
-│   │   └── ui/              # Reusable UI components
-│   ├── contexts/            # React contexts
-│   ├── hooks/               # Custom React hooks
-│   ├── lib/                 # Utilities and configurations
-│   └── types/               # TypeScript type definitions
-├── docs/                    # Documentation
-├── public/                  # Static assets
-└── [config files]          # Various configuration files
+│   ├── app/                      # Next.js App Router pages
+│   │   ├── applications/         # Saved applications management
+│   │   ├── layout.tsx           # Root layout with providers
+│   │   └── page.tsx             # Main dashboard
+│   ├── components/               # React components
+│   │   ├── applications/         # Application tracking components
+│   │   ├── auth/                # Authentication components
+│   │   ├── profile/             # Profile management UI
+│   │   ├── tabs/                # Main application tabs
+│   │   └── ui/                  # Reusable UI components
+│   ├── contexts/                # React contexts (Auth)
+│   ├── hooks/                   # Custom React hooks
+│   ├── lib/                     # Utilities and configurations
+│   │   ├── firebase.ts          # Firebase configuration
+│   │   ├── profile-management-service.ts # Profile API client
+│   │   ├── scoring-service.ts   # AI services client
+│   │   └── store.ts             # Zustand store definitions
+│   └── types/                   # TypeScript type definitions
+├── services/                    # Microservices
+│   ├── profile-management/      # Profile and AI workflow service
+│   │   └── src/ai/             # Genkit AI flows and templates
+│   ├── scoring-engine/          # Future scoring service
+│   └── shared/                  # Shared types and utilities
+├── docs/                        # Project documentation
+└── [config files]              # Configuration files
 ```
 
 ## 🎨 Design System
 
-ResumeForge AI uses a carefully crafted design system optimized for professional resume building:
+ResumeForge AI uses a professional design system optimized for job application workflows:
 
-- **Primary Color**: Soft Blue (#64B5F6) - Inspires confidence and reliability
-- **Background**: Light Gray (#F0F4F8) - Clean, professional canvas
-- **Accent**: Muted Teal (#4DB6AC) - Highlights key elements
-- **Typography**: 
-  - Body: Inter (modern, readable)
-  - Headlines: Space Grotesk (tech-friendly)
-  - Code: Monospace (for LaTeX output)
+- **Primary**: Soft Blue (#64B5F6) - Confidence and reliability
+- **Background**: Light Gray (#F0F4F8) - Clean, professional canvas  
+- **Accent**: Muted Teal (#4DB6AC) - Key element highlights
+- **Typography**:
+  - **Body**: Inter - Modern, highly readable
+  - **Headlines**: Space Grotesk - Tech-friendly, approachable
+  - **Code**: JetBrains Mono - LaTeX and technical content
 
-## 🔮 Upcoming Features
+## 🔧 Core Features Deep Dive
 
-ResumeForge AI is actively developed with exciting features planned:
+### **AI-Powered Profile Building**
+- **Natural Language Processing**: Describe your experience conversationally
+- **Automatic Data Structuring**: AI parses and organizes information
+- **Smart Skill Recognition**: Identifies and categorizes technical and soft skills
+- **Context-Aware Parsing**: Understands employment vs. project contexts
 
-### Advanced Scoring System
-- **Multi-dimensional Analysis**: Cosine similarity, semantic matching, and contextual scoring
-- **Company Intelligence**: Automated research of target companies for better personalization
-- **Skills Gap Analysis**: Identify missing skills and suggest relevant additions
+### **Intelligent Resume Generation**
+- **Job-Specific Tailoring**: Content selection based on job requirements
+- **ATS Optimization**: Hidden skill keywords for applicant tracking systems
+- **Multiple Templates**: Professional LaTeX templates with customization options
+- **Dynamic Formatting**: Automatic adjustment for page limits and visual preferences
 
-### Dynamic Experience Engine
-- **Multi-variant Generation**: Express the same experience in different ways for different roles
-- **Context-aware Selection**: Automatically choose optimal experience descriptions
-- **Intelligent Reframing**: Suggest better ways to present existing accomplishments
+### **Application Lifecycle Management**
+- **End-to-End Tracking**: From initial application to final outcome
+- **Status Progression**: Saved → Submitted → Interviewing → Offer/Rejection
+- **Communication History**: Log all employer interactions and important dates
+- **Resume Versioning**: Track which resume variant was used for each application
 
-### Enhanced Recommendations
-- **Hidden Skills Detection**: Identify unexpressed skills based on experience
-- **Risk-assessed Suggestions**: Smart recommendations that avoid misrepresentation
-- **Industry-specific Optimization**: Tailor language for different industries and company cultures
+### **Smart Matching & Analysis**
+- **Multi-Dimensional Scoring**: Skills, experience, cultural fit, growth potential
+- **Gap Analysis**: Identify missing skills and improvement opportunities
+- **Recommendation Engine**: Actionable suggestions for profile enhancement
+- **Performance Tracking**: Monitor application success rates and patterns
+
+## 🚀 Usage Guide
+
+### **1. Profile Setup**
+- **Personal Details**: Add contact information and social links
+- **Background Information**: Use AI assistant to articulate your professional story
+- **Employment History**: Add jobs manually or describe them in natural language
+- **Skills & Projects**: Comprehensive tracking with automatic categorization
+
+### **2. Application Creation**
+- **Job Description Analysis**: Paste job posting for AI analysis
+- **Customization Options**: Choose template, colors, and page limits
+- **Content Generation**: AI creates tailored resume, cover letter, and summary
+- **Review & Refine**: Edit generated content and add company-specific information
+
+### **3. Application Management**
+- **Save & Track**: Store complete application packages
+- **Status Updates**: Progress through application stages
+- **Communication Logging**: Record interviews, emails, and follow-ups
+- **Outcome Analysis**: Learn from rejections and successful applications
+
+## 🔮 Planned Features
+
+### **Enhanced AI Capabilities**
+- **Resume Upload Parsing**: Extract information from existing resumes
+- **LinkedIn Integration**: Import and sync profile data
+- **Company Research**: Automatic company information gathering
+- **Interview Preparation**: AI-generated questions and talking points
+
+### **Advanced Analytics**
+- **Success Metrics**: Track application-to-interview conversion rates
+- **Market Analysis**: Industry and role-specific insights
+- **Skill Trend Analysis**: Identify in-demand skills in your field
+- **Salary Insights**: Compensation data and negotiation guidance
+
+### **Collaboration Features**
+- **Mentor Reviews**: Share profiles for feedback
+- **Template Sharing**: Community-contributed resume templates
+- **Success Stories**: Learn from others' successful applications
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](docs/CONTRIBUTING.md) for details.
 
-### Development Workflow
-
+### **Development Workflow**
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-### Issue Labels
+### **Development Setup**
+```bash
+# Install dependencies
+npm install
 
-- `type:feature` - New feature implementation
-- `type:bug` - Bug fixes
-- `type:enhancement` - Improvements to existing features
-- `priority:high/medium/low` - Issue priority
-- `good-first-issue` - Great for new contributors
+# Run type checking
+npm run typecheck
 
-## 📊 Performance
+# Run linting
+npm run lint
 
-ResumeForge AI is optimized for performance:
+# Start development servers
+npm run dev          # Next.js frontend
+npm run genkit:dev   # AI development server
+```
 
-- **Client-side Rendering**: Fast, responsive user interface
-- **Efficient State Management**: Zustand for minimal re-renders
-- **Firebase Optimization**: Efficient data fetching and caching
-- **AI Workflow Optimization**: Parallel processing where possible
+## 📊 Performance & Security
 
-## 🔒 Security & Privacy
+### **Performance Optimizations**
+- **Turbopack**: Fast development builds and hot reload
+- **TanStack Query**: Efficient data fetching and caching
+- **Zustand**: Minimal re-renders with optimized state management
+- **Firebase SDK**: Optimized for web performance
 
-- **Secure Authentication**: Firebase Auth with Google SSO support
-- **Data Encryption**: All user data encrypted in transit and at rest
-- **Privacy-first**: User data used only for resume optimization
-- **GDPR Compliant**: Full data portability and deletion rights
+### **Security Measures**
+- **Firebase Authentication**: Secure user management
+- **Firestore Security Rules**: Database-level access control
+- **Environment Variables**: Secure API key management
+- **HTTPS Everywhere**: Encrypted data transmission
+
+## 📱 Browser Support
+
+- **Chrome**: 90+
+- **Firefox**: 88+
+- **Safari**: 14+
+- **Edge**: 90+
 
 ## 📄 License
 
@@ -210,19 +288,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [Firebase](https://firebase.google.com/) for backend infrastructure
-- [Google AI](https://ai.google.dev/) for powerful language models
-- [Radix UI](https://www.radix-ui.com/) for accessible components
-- [Tailwind CSS](https://tailwindcss.com/) for styling system
-
-## 📞 Support
-
-- **Documentation**: [View Docs](docs/)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/resumeforge-ai/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/resumeforge-ai/discussions)
+- **Google AI**: Gemini 2.0 Flash for powerful language understanding
+- **Vercel**: Next.js framework and development tools
+- **Firebase**: Backend infrastructure and authentication
+- **Radix UI**: Accessible component primitives
+- **shadcn/ui**: Beautiful, customizable component library
 
 ---
 
-**Made with ❤️ by the ResumeForge AI team**
-
-*Empowering job seekers with AI-driven resume optimization*
+**Ready to transform your job search with AI?** [Get started now](http://localhost:9002) and create your first optimized resume in minutes.
