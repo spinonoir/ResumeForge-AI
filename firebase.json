@@ -11,9 +11,27 @@
     ],
     "rewrites": [
       {
+        "source": "/api/scoring/**",
+        "function": "scoring_engine"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
     ]
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "scoring-engine",
+      "runtime": "python312",
+      "ignore": [
+        "venv",
+        ".venv",
+        ".env",
+        "__pycache__",
+        "*.pyc"
+      ]
+    }
+  ]
 } 

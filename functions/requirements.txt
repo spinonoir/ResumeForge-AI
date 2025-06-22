@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+firebase-functions
+firebase-admin
+a2wsgi
+python-dotenv
+google-cloud-secret-manager 
