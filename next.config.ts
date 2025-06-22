@@ -1,7 +1,38 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups',
+          },
+        ],
+      },
+    ];
+  },
+  async redirects() {
+    return [
+      {
+        source: '/wp-admin/:path*',
+        destination: '/',
+        permanent: false,
+      },
+      {
+        source: '/wordpress/:path*',
+        destination: '/',
+        permanent: false,
+      },
+      {
+        source: '/wp-login.php',
+        destination: '/',
+        permanent: false,
+      },
+    ];
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
